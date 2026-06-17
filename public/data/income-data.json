@@ -1,0 +1,23 @@
+{
+  "_안내": "농사로 소득자료를 변환해 이 파일의 crops 배열에 채우면 작목별 수익성 비교 탭과 내 농가 경영진단 탭의 전국 평균 비교가 자동으로 반영됩니다. _example=true 항목은 실제 데이터 입력 전 구조 확인용입니다.",
+  "meta": {
+    "year": null,
+    "unit": "원/10a (10a = 300평 = 1,000㎡)",
+    "source": "농촌진흥청 농사로 농산물소득자료",
+    "crop_count": 0
+  },
+  "crops": [
+    {
+      "id": "EXAMPLE-CROP-0001",
+      "_example": true,
+      "name": "예시) 작목명",
+      "category": "예시 분류 (노지과수/시설채소/식량작물 등)",
+      "total_revenue_per_10a": 0,
+      "management_cost_per_10a": 0,
+      "income_per_10a": 0,
+      "income_rate_pct": 0,
+      "unit_price_per_kg": 0,
+      "yield_per_10a_kg": 0
+    }
+  ]
+}

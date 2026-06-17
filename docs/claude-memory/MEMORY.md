@@ -1,0 +1,1 @@
+- [Data must link to diagnosis](data-must-link-to-diagnosis.md) — 모든 추가 데이터는 농가 진단과 연관성을 가져야 함 (핵심 설계 원칙)

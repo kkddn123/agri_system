@@ -1,0 +1,22 @@
+{
+  "_안내": "여기에 케이스를 추가하면 판매경로 진단 탭의 '사례 선택' 드롭다운에 자동으로 나타나고, 선택 시 농가 정보 입력 폼이 자동으로 채워집니다. form 필드는 농가판매경로_AI시스템.jsx의 입력값과 1:1로 대응합니다. behaviorAnswers의 q1~q5 값은 0~3 (해당 질문의 A~D 선택지 인덱스) 입니다.",
+  "meta": {
+    "case_count": 0,
+    "note": "실측/검증용 가상 농가 케이스 모음"
+  },
+  "cases": [
+    {
+      "id": "EXAMPLE-CASE-0001",
+      "_example": true,
+      "label": "예시) 사례1 - 케이스 이름",
+      "form": {
+        "crop": "", "variety": "", "area": "", "volume": "", "shippingPeriod": "",
+        "storage": "", "gradeRatio": "", "age": "", "labor": "", "packMember": "",
+        "directSaleExp": "", "wholesaleExp": "", "onlineExp": "", "localExp": "",
+        "claimExp": "", "timeAvail": "", "negotiation": "", "currentRoutes": "",
+        "region": "", "special": "", "localAccess": "", "packCapable": ""
+      },
+      "behaviorAnswers": { "q1": null, "q2": null, "q3": null, "q4": null, "q5": null }
+    }
+  ]
+}

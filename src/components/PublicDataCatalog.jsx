@@ -6,6 +6,8 @@ const CATEGORY_LABELS = {
   A: "판매경로", B: "생산·유통관리", C: "소비자행동", D: "정보·교육", E: "식품부",
 };
 
+const FOLDER_ORDER = ["출하 가이드 · 거래전략", "수급관리", "소비정보", "소득·수익성"];
+
 export default function PublicDataCatalog() {
   const [items, setItems] = useState(null); // null = 로딩중
   const [meta, setMeta] = useState({});
@@ -46,7 +48,13 @@ export default function PublicDataCatalog() {
     const g = {};
     filtered.forEach((d) => {
       const cat = d.category || "?";
-      (g[cat] = g[cat] || []).push(d);
+      if (!g[cat]) g[cat] = { __folders: {}, __noFolder: [] };
+      const folder = d.folder || null;
+      if (folder) {
+        (g[cat].__folders[folder] = g[cat].__folders[folder] || []).push(d);
+      } else {
+        g[cat].__noFolder.push(d);
+      }
     });
     return g;
   }, [filtered]);
@@ -117,16 +125,52 @@ export default function PublicDataCatalog() {
         <div style={{ color: theme.textFaint, padding: 24, textAlign: "center" }}>조건에 맞는 데이터셋이 없습니다.</div>
       )}
 
-      {Object.entries(grouped).map(([cat, list]) => (
-        <div key={cat} style={{ marginBottom: 28 }}>
-          <h3 style={{ color: theme.text, fontSize: 14, marginBottom: 12 }}>
-            <span style={{ color: theme.accent }}>{cat}.</span> {CATEGORY_LABELS[cat] || cat} ({list.length}건)
-          </h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-            {list.map((d) => <DatasetCard key={d.id} d={d} />)}
+      {Object.entries(grouped).map(([cat, { __folders, __noFolder }]) => {
+        const totalCount = Object.values(__folders).flat().length + __noFolder.length;
+        const folderKeys = FOLDER_ORDER.filter((f) => __folders[f])
+          .concat(Object.keys(__folders).filter((f) => !FOLDER_ORDER.includes(f)));
+        return (
+          <div key={cat} style={{ marginBottom: 28 }}>
+            <h3 style={{ color: theme.text, fontSize: 14, marginBottom: 12 }}>
+              <span style={{ color: theme.accent }}>{cat}.</span> {CATEGORY_LABELS[cat] || cat} ({totalCount}건)
+            </h3>
+            {folderKeys.map((folder) => (
+              <FolderGroup key={folder} name={folder} items={__folders[folder]} />
+            ))}
+            {__noFolder.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, marginTop: folderKeys.length > 0 ? 12 : 0 }}>
+                {__noFolder.map((d) => <DatasetCard key={d.id} d={d} />)}
+              </div>
+            )}
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function FolderGroup({ name, items }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div style={{ marginBottom: 14, border: `1px solid ${theme.panelBorder}`, borderRadius: 10, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 8,
+          background: theme.panelAlt, border: "none", padding: "10px 14px",
+          cursor: "pointer", color: theme.text, fontSize: 13, fontWeight: 600,
+        }}
+      >
+        <span style={{ fontSize: 14 }}>{open ? "📂" : "📁"}</span>
+        <span style={{ flex: 1, textAlign: "left" }}>{name}</span>
+        <span style={{ color: theme.textMuted, fontSize: 12, fontWeight: 400 }}>{items.length}건</span>
+        <span style={{ color: theme.textMuted, fontSize: 11 }}>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+          {items.map((d) => <DatasetCard key={d.id} d={d} />)}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -162,6 +206,10 @@ function DatasetCard({ d }) {
       ) : d.local_file ? (
         <a href={`/data/guides/${encodeURIComponent(d.local_file)}`} target="_blank" rel="noreferrer" style={{ color: theme.accent, fontSize: 12.5, fontWeight: 600 }}>
           📄 원문 열기 →
+        </a>
+      ) : d.source_url ? (
+        <a href={d.source_url} target="_blank" rel="noreferrer" style={{ color: theme.accent, fontSize: 12.5, fontWeight: 600 }}>
+          🏛 도서관에서 열기 →
         </a>
       ) : (
         <span style={{ color: theme.textFaint, fontSize: 12.5 }}>링크 미입력</span>

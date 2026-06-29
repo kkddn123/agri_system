@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { theme } from "../theme";
-import { loadRdaCases } from "../lib/dataLoader";
+import { loadRdaCases, loadPublicDatasets } from "../lib/dataLoader";
+import { CROP_REGISTRY } from "../lib/cropRegistry";
 
 // 이 파일은 농가판매경로_AI시스템.jsx(v8)의 로직(행동기반 5문항 분류, TOPSIS 계산,
 // Layer1/Layer2 프롬프트)을 그대로 가져와 AGR 대시보드의 다크 테마 탭 안에 옮긴 것입니다.
@@ -164,17 +165,42 @@ function calcTOPSIS(farmerType, c5Adjustments) {
   return result.sort((a, b) => b.score - a.score);
 }
 
-// ─── C5 진입가능성 자동 조정 (v8과 동일) ──────────────────────
+// ─── C5 진입가능성 자동 조정 ──────────────────────────────────
 function calcC5Adjustments(form) {
   const adj = {};
-  let online = 5;
-  if (form.onlineExp === "있음") online += 2;
+
+  // 온라인 진입가능성: 경험·포장·시간·연령·노동력 모두 반영
+  let online = 4; // 기본값 하향 (기존 5 → 4)
+
+  // 온라인 판매 경험 (핵심 변수)
+  if (form.onlineExp === "있음") online += 3;
   else if (form.onlineExp === "일부 있음") online += 1;
-  else if (form.onlineExp === "없음") online -= 1;
-  if (form.claimExp === "있음") online += 1;
+  else if (form.onlineExp === "없음") online -= 2; // 기존 -1 → -2
+
+  // 포장 대응: 온라인은 개별 소포장 필수 — 불가면 사실상 진입 불가
+  if (form.packCapable === "어려움") online -= 3;
+  else if (form.packCapable === "가능") online += 1;
+
+  // 추가 시간 투입 (온라인은 주문처리·배송 상시 대응 필요)
   if (form.timeAvail === "충분히 가능") online += 1;
-  else if (form.timeAvail === "어려움") online -= 2;
-  adj["직거래(온라인)"] = Math.max(2, Math.min(9, online));
+  else if (form.timeAvail === "일부 가능") online -= 1;
+  else if (form.timeAvail === "어려움") online -= 3; // 기존 -2 → -3
+
+  // 클레임·반품 대응 경험 (온라인 고객 응대 핵심)
+  if (form.claimExp === "있음") online += 1;
+  else if (form.claimExp === "없음") online -= 1;
+
+  // 연령 제약 (스마트기기·플랫폼 활용 난이도)
+  const age = parseInt(form.age) || 0;
+  if (age >= 70) online -= 3;
+  else if (age >= 65) online -= 2;
+  else if (age >= 60) online -= 1;
+
+  // 노동력 부족 (가족 1명이면 주문처리·배송·농작업 병행 불가)
+  const labor = parseInt(form.labor) || 0;
+  if (labor <= 1) online -= 1;
+
+  adj["직거래(온라인)"] = Math.max(1, Math.min(9, online));
 
   let local = 6;
   if (form.localAccess === "좋음") local += 2;
@@ -193,7 +219,7 @@ function calcC5Adjustments(form) {
 }
 
 // ─── 레이어1 AI 분석 프롬프트 생성 (v8과 동일) ───────────────
-function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult) {
+function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, consumerInsight) {
   const typeInfo = TYPE_INFO[farmerType.type];
   const topRoutes = topsisResult.slice(0, 3).map((r) => `${r.route}(${r.score}점)`).join(", ");
 
@@ -237,6 +263,11 @@ function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult) {
 [TOPSIS 사전 점수 (참고용)]
 ${topsisResult.map((r) => `- ${r.route}: ${r.score}점`).join("\n")}
 TOPSIS 상위 3개 경로: ${topRoutes}
+
+[소비자가 원하는 상품 (농식품 소비월보 기반)]
+${consumerInsight
+  ? `- ${consumerInsight}\n- 위 소비자 선호를 반드시 경로별 평가와 추천 포트폴리오에 반영하라. 특히 포장·규격·브랜드화·판매 채널 관련 시사점을 "경로별 경쟁력 강화 과제"에 구체적으로 연결하라.`
+  : "- 이 품목은 소비월보 데이터가 없으므로 일반적인 소비 경향으로 판단한다."}
 
 [분석 출력 순서 — 반드시 이 순서로 한국어로 답하라]
 
@@ -527,12 +558,94 @@ export default function PortfolioDiagnosis() {
   const outputRef = useRef(null);
   const output2Ref = useRef(null);
 
+  const [datasets, setDatasets] = useState([]);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [priceAutoFilled, setPriceAutoFilled] = useState(false);
+
   // 사례 선택용 데이터 로드
   useEffect(() => {
     let alive = true;
     loadRdaCases().then(({ items }) => { if (alive) setCases(items); }).catch(() => {});
+    loadPublicDatasets().then(({ items }) => { if (alive) setDatasets(items); }).catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // KAMIS 시황 자동 조회 (Step 3 진입 시)
+  useEffect(() => {
+    if (step !== 3) return;
+    const cropMeta = CROP_REGISTRY.find((c) => c.name === form.crop);
+    if (!cropMeta?.kamis) return;
+
+    setPriceLoading(true);
+    setPriceAutoFilled(false);
+
+    const today = new Date();
+    const thisYear = today.getFullYear();
+    const startDate = `${thisYear - 3}-01`;
+    const endDate = `${thisYear}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+    const params = new URLSearchParams({
+      startDate, endDate, period: "monthly",
+      itemCode: cropMeta.kamis.itemCode,
+      kindCode: cropMeta.kamis.kindCode,
+    });
+
+    fetch(`http://localhost:3001/api/kamis/price?${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        // 도매(중도매인) 상품 항목만 사용
+        const priceList = Array.isArray(data?.price) ? data.price : [];
+        const wholesale = priceList.find(
+          (p) => p.productclscode === "02" && p.caption?.includes("상품")
+        ) || priceList.find((p) => p.productclscode === "02") || priceList[0];
+        if (!wholesale?.item?.length) return;
+
+        // 올해 데이터에서 가장 최근 유효 월 찾기
+        const thisYearRow = wholesale.item.find((r) => r.yyyy === String(thisYear));
+        if (!thisYearRow) return;
+
+        const months = ["m1","m2","m3","m4","m5","m6","m7","m8","m9","m10","m11","m12"];
+        const validMonths = months
+          .map((m, i) => ({ month: i + 1, val: parseFloat(String(thisYearRow[m] || "").replace(/,/g, "")) }))
+          .filter((x) => x.val > 0);
+        if (validMonths.length === 0) return;
+
+        const latestMonth = validMonths[validMonths.length - 1];
+        const prevMonth = validMonths.length >= 2 ? validMonths[validMonths.length - 2] : null;
+
+        // 평년: 최근 3년 같은 월 평균
+        const prevYearRows = wholesale.item.filter((r) => r.yyyy !== String(thisYear));
+        const prevPrices = prevYearRows
+          .map((r) => parseFloat(String(r[`m${latestMonth.month}`] || "").replace(/,/g, "")))
+          .filter((v) => v > 0);
+        const pyAvg = prevPrices.length
+          ? prevPrices.reduce((a, b) => a + b, 0) / prevPrices.length
+          : latestMonth.val;
+
+        const ratio = latestMonth.val / pyAvg;
+        const vsAvg = ratio >= 1.1
+          ? "평년 이상 (110%~)"
+          : ratio <= 0.9
+          ? "평년 이하 (~90%)"
+          : "평년 수준 (90~110%)";
+
+        let trend = "모름";
+        if (prevMonth) {
+          const r = latestMonth.val / prevMonth.val;
+          trend = r >= 1.05 ? "상승" : r <= 0.95 ? "하락" : "횡보";
+        }
+
+        setLayer2Form((p) => ({
+          ...p,
+          curPrice: String(Math.round(latestMonth.val)),
+          priceVsAvg: vsAvg,
+          priceTrend: trend,
+        }));
+        setPriceAutoFilled(true);
+      })
+      .catch(() => {})
+      .finally(() => setPriceLoading(false));
+  }, [step]);
 
   function applyCase(caseId) {
     setSelectedCaseId(caseId);
@@ -576,11 +689,18 @@ export default function PortfolioDiagnosis() {
       capability: ft.type === "A" ? "높음" : ft.type === "D" ? "낮음" : "보통",
     }));
 
+    // 소비월보 소비자 인사이트 조회
+    const cropMeta = CROP_REGISTRY.find((c) => c.name === form.crop);
+    const consumeDataset = cropMeta?.consumeId
+      ? datasets.find((d) => d.id === cropMeta.consumeId)
+      : null;
+    const consumerInsight = consumeDataset?.consumerInsight || null;
+
     setLayer1Loading(true);
     setLayer1Output("");
     setStep(2);
     try {
-      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis);
+      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight);
       await callClaude(prompt, (txt) => setLayer1Output(txt));
     } catch (e) {
       setLayer1Output("⚠️ 분석 중 오류가 발생했습니다: " + e.message);
@@ -890,7 +1010,12 @@ export default function PortfolioDiagnosis() {
           </div>
 
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 16 }}>📈 시황 정보 (수동 입력 / KAMIS 연동 예정)</h3>
+            <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 16 }}>
+              📈 시황 정보
+              {priceLoading && <span style={{ fontSize: 12, color: theme.accent, marginLeft: 8, fontWeight: 400 }}>KAMIS 조회 중...</span>}
+              {priceAutoFilled && !priceLoading && <span style={{ fontSize: 12, color: theme.accent, marginLeft: 8, fontWeight: 400 }}>✓ KAMIS 자동 업데이트</span>}
+              {!priceLoading && !priceAutoFilled && <span style={{ fontSize: 12, color: theme.textFaint, marginLeft: 8, fontWeight: 400 }}>수동 입력</span>}
+            </h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>현재 도매 시장가 (원/kg)</label>

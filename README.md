@@ -1,6 +1,6 @@
 # AGR 대시보드 — 사용 가이드
 
-5탭 대시보드입니다. `npm install` 한 번, `npm run dev` 한 번이면 브라우저에서 바로 볼 수
+3탭 대시보드입니다. `npm install` 한 번, `npm run dev` 한 번이면 브라우저에서 바로 볼 수
 있고, 데이터는 `public/data/` 폴더의 JSON만 채우면 코드를 다시 건드리지 않아도 화면에
 자동으로 반영됩니다.
 
@@ -83,14 +83,15 @@ agr-dashboard/
   src/
     main.jsx                   진입점 (안 건드려도 됨)
     theme.js                   다크 네이비 색상 토큰
-    App.jsx                    5탭 셸 (탭 전환만 담당)
+    App.jsx                    3탭 셸 (탭 전환만 담당)
     lib/dataLoader.js          public/data/*.json을 읽어오는 공용 함수
     components/
-      PublicDataCatalog.jsx    탭4: 공공데이터 (검색·필터 포함)
-      CropProfitability.jsx    탭1: 작목별 수익성 비교 (정렬 차트+표)
-      FarmDiagnosis.jsx        탭2: 내 농가 경영진단 (입력→전국평균 비교)
-      PortfolioDiagnosis.jsx   탭3: 판매경로 진단 (v8 로직 그대로 + 사례선택 + AI 분석)
-      Guide.jsx                탭5: 가이드 (정적 설명)
+      PortfolioDiagnosis.jsx   탭1: 농가 진단 (경영진단+판매경로 통합 / 입력→전국평균 비교 + 행동기반 분류 + TOPSIS + AI 분석)
+      MarketInfo.jsx           탭2: 시장 정보 (하위탭 묶음)
+        CropProfitability.jsx    └ 작목별 수익성 비교 (정렬 차트+표)
+        KamisPrice.jsx           └ 도매시장 가격 (KAMIS)
+        ConsumeTrend.jsx         └ 소비 트렌드 (MAFRA)
+      PublicDataCatalog.jsx    탭3: 공공데이터 (검색·필터 포함)
 ```
 
 ## 4. 배포하기 (선택)

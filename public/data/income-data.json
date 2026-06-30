@@ -1,23 +1,1723 @@
 {
-  "_안내": "농사로 소득자료를 변환해 이 파일의 crops 배열에 채우면 작목별 수익성 비교 탭과 내 농가 경영진단 탭의 전국 평균 비교가 자동으로 반영됩니다. _example=true 항목은 실제 데이터 입력 전 구조 확인용입니다.",
+  "_안내": "scripts/fetch_income_data.mjs 로 AMIS OpenAPI에서 자동 생성. 수동 편집 시 덮어쓰임.",
   "meta": {
-    "year": null,
+    "year": "2024",
     "unit": "원/10a (10a = 300평 = 1,000㎡)",
-    "source": "농촌진흥청 농사로 농산물소득자료",
-    "crop_count": 0
+    "area": "기본(전국/대표)",
+    "source": "농촌진흥청 AMIS 농축산물 소득자료 OpenAPI (profitAnalysisxml)",
+    "crop_count": 57,
+    "fetched_at": "2026-06-30T10:46:35.843Z"
   },
   "crops": [
     {
-      "id": "EXAMPLE-CROP-0001",
-      "_example": true,
-      "name": "예시) 작목명",
-      "category": "예시 분류 (노지과수/시설채소/식량작물 등)",
-      "total_revenue_per_10a": 0,
-      "management_cost_per_10a": 0,
-      "income_per_10a": 0,
-      "income_rate_pct": 0,
-      "unit_price_per_kg": 0,
-      "yield_per_10a_kg": 0
+      "id": "CROP-참깨",
+      "_example": false,
+      "name": "참깨",
+      "category": "특용작물",
+      "total_revenue_per_10a": 1815866,
+      "management_cost_per_10a": 770302,
+      "income_per_10a": 1045564,
+      "income_rate_pct": 55.7,
+      "unit_price_per_kg": 25580,
+      "yield_per_10a_kg": 71,
+      "costs": {
+        "materials": 533512,
+        "fertilizer_inorganic": 32492,
+        "fertilizer_organic": 46724,
+        "pesticide": 61462,
+        "energy": 27276,
+        "materials_etc": 59476,
+        "depreciation_equip": 203605,
+        "depreciation_facility": 18955,
+        "rent": 60273,
+        "consignment": 11521,
+        "hired_labor": 163720
+      },
+      "extra": {
+        "production_cost": 2479360,
+        "value_added": 1282355,
+        "net_profit": -663494
+      }
+    },
+    {
+      "id": "CROP-들깨",
+      "_example": false,
+      "name": "들깨",
+      "category": "특용작물",
+      "total_revenue_per_10a": 1094506,
+      "management_cost_per_10a": 497644,
+      "income_per_10a": 596862,
+      "income_rate_pct": 51.2,
+      "unit_price_per_kg": 12707,
+      "yield_per_10a_kg": 86,
+      "costs": {
+        "materials": 349044,
+        "fertilizer_inorganic": 26099,
+        "fertilizer_organic": 34685,
+        "pesticide": 30548,
+        "energy": 18345,
+        "materials_etc": 25533,
+        "depreciation_equip": 106758,
+        "depreciation_facility": 27303,
+        "rent": 38378,
+        "consignment": 13231,
+        "hired_labor": 90211
+      },
+      "extra": {
+        "production_cost": 1675626,
+        "value_added": 745462,
+        "net_profit": -581120
+      }
+    },
+    {
+      "id": "CROP-노지풋옥수수",
+      "_example": false,
+      "name": "노지풋옥수수",
+      "category": "식량작물",
+      "total_revenue_per_10a": 1988080,
+      "management_cost_per_10a": 852631,
+      "income_per_10a": 1135449,
+      "income_rate_pct": 50.3,
+      "unit_price_per_kg": 709,
+      "yield_per_10a_kg": 2796,
+      "costs": {
+        "materials": 616294,
+        "fertilizer_inorganic": 74792,
+        "fertilizer_organic": 117827,
+        "pesticide": 38568,
+        "energy": 40778,
+        "materials_etc": 104365,
+        "depreciation_equip": 125022,
+        "depreciation_facility": 46551,
+        "rent": 57090,
+        "consignment": 12815,
+        "hired_labor": 159842
+      },
+      "extra": {
+        "production_cost": 2041718,
+        "value_added": 1371786,
+        "net_profit": -53639
+      }
+    },
+    {
+      "id": "CROP-시설풋옥수수",
+      "_example": false,
+      "name": "시설풋옥수수",
+      "category": "식량작물",
+      "total_revenue_per_10a": 4763157,
+      "management_cost_per_10a": 1633480,
+      "income_per_10a": 3129677,
+      "income_rate_pct": 62.8,
+      "unit_price_per_kg": 939,
+      "yield_per_10a_kg": 5072,
+      "costs": {
+        "materials": 1354089,
+        "fertilizer_inorganic": 110273,
+        "fertilizer_organic": 137304,
+        "pesticide": 26639,
+        "energy": 41198,
+        "materials_etc": 439883,
+        "depreciation_equip": 195425,
+        "depreciation_facility": 234441,
+        "rent": 72649,
+        "consignment": 0,
+        "hired_labor": 202992
+      },
+      "extra": {
+        "production_cost": 2875597,
+        "value_added": 3409069,
+        "net_profit": 1887561
+      }
+    },
+    {
+      "id": "CROP-인삼(4년근)",
+      "_example": false,
+      "name": "인삼(4년근)",
+      "category": "특용작물",
+      "total_revenue_per_10a": 14561630,
+      "management_cost_per_10a": 8926853,
+      "income_per_10a": 5634777,
+      "income_rate_pct": 33.6,
+      "unit_price_per_kg": 22360,
+      "yield_per_10a_kg": 651,
+      "costs": {
+        "materials": 4893201,
+        "fertilizer_inorganic": 105328,
+        "fertilizer_organic": 436508,
+        "pesticide": 998097,
+        "energy": 197251,
+        "materials_etc": 726985,
+        "depreciation_equip": 945856,
+        "depreciation_facility": 793064,
+        "rent": 1369399,
+        "consignment": 209041,
+        "hired_labor": 2432038
+      },
+      "extra": {
+        "production_cost": 13281064,
+        "value_added": 9668429,
+        "net_profit": 1280566
+      }
+    },
+    {
+      "id": "CROP-맥주보리",
+      "_example": false,
+      "name": "맥주보리",
+      "category": "식량작물",
+      "total_revenue_per_10a": 351886,
+      "management_cost_per_10a": 292889,
+      "income_per_10a": 58996,
+      "income_rate_pct": 4.5,
+      "unit_price_per_kg": 1153,
+      "yield_per_10a_kg": 305,
+      "costs": {
+        "materials": 233773,
+        "fertilizer_inorganic": 38539,
+        "fertilizer_organic": 25857,
+        "pesticide": 10043,
+        "energy": 32014,
+        "materials_etc": 3514,
+        "depreciation_equip": 86745,
+        "depreciation_facility": 4700,
+        "rent": 32828,
+        "consignment": 19851,
+        "hired_labor": 5328
+      },
+      "extra": {
+        "production_cost": 412089,
+        "value_added": 118112,
+        "net_profit": -60203
+      }
+    },
+    {
+      "id": "CROP-겉보리",
+      "_example": false,
+      "name": "겉보리",
+      "category": "식량작물",
+      "total_revenue_per_10a": 454571,
+      "management_cost_per_10a": 334139,
+      "income_per_10a": 120432,
+      "income_rate_pct": 22.3,
+      "unit_price_per_kg": 1074,
+      "yield_per_10a_kg": 422,
+      "costs": {
+        "materials": 271120,
+        "fertilizer_inorganic": 45548,
+        "fertilizer_organic": 11173,
+        "pesticide": 13599,
+        "energy": 26391,
+        "materials_etc": 5087,
+        "depreciation_equip": 119215,
+        "depreciation_facility": 6979,
+        "rent": 51810,
+        "consignment": 8987,
+        "hired_labor": 1163
+      },
+      "extra": {
+        "production_cost": 500709,
+        "value_added": 183451,
+        "net_profit": -46138
+      }
+    },
+    {
+      "id": "CROP-고구마",
+      "_example": false,
+      "name": "고구마",
+      "category": "식량작물",
+      "total_revenue_per_10a": 3629811,
+      "management_cost_per_10a": 1919252,
+      "income_per_10a": 1710559,
+      "income_rate_pct": 38.4,
+      "unit_price_per_kg": 2094,
+      "yield_per_10a_kg": 1686,
+      "costs": {
+        "materials": 1200705,
+        "fertilizer_inorganic": 79823,
+        "fertilizer_organic": 54665,
+        "pesticide": 44372,
+        "energy": 69416,
+        "materials_etc": 226717,
+        "depreciation_equip": 227729,
+        "depreciation_facility": 101526,
+        "rent": 156750,
+        "consignment": 36810,
+        "hired_labor": 512211
+      },
+      "extra": {
+        "production_cost": 3106320,
+        "value_added": 2429106,
+        "net_profit": 523490
+      }
+    },
+    {
+      "id": "CROP-밀",
+      "_example": false,
+      "name": "밀",
+      "category": "식량작물",
+      "total_revenue_per_10a": 364906,
+      "management_cost_per_10a": 314758,
+      "income_per_10a": 50148,
+      "income_rate_pct": 5.8,
+      "unit_price_per_kg": 925,
+      "yield_per_10a_kg": 394,
+      "costs": {
+        "materials": 233009,
+        "fertilizer_inorganic": 44842,
+        "fertilizer_organic": 29313,
+        "pesticide": 11140,
+        "energy": 23349,
+        "materials_etc": 3973,
+        "depreciation_equip": 78282,
+        "depreciation_facility": 3192,
+        "rent": 54341,
+        "consignment": 21359,
+        "hired_labor": 5692
+      },
+      "extra": {
+        "production_cost": 429776,
+        "value_added": 131897,
+        "net_profit": -64869
+      }
+    },
+    {
+      "id": "CROP-봄감자",
+      "_example": false,
+      "name": "봄감자",
+      "category": "식량작물",
+      "total_revenue_per_10a": 2693175,
+      "management_cost_per_10a": 1443511,
+      "income_per_10a": 1249665,
+      "income_rate_pct": 38.3,
+      "unit_price_per_kg": 1190,
+      "yield_per_10a_kg": 2263,
+      "costs": {
+        "materials": 971319,
+        "fertilizer_inorganic": 99172,
+        "fertilizer_organic": 127435,
+        "pesticide": 59329,
+        "energy": 38690,
+        "materials_etc": 158230,
+        "depreciation_equip": 185651,
+        "depreciation_facility": 36987,
+        "rent": 81513,
+        "consignment": 29300,
+        "hired_labor": 354340
+      },
+      "extra": {
+        "production_cost": 2386378,
+        "value_added": 1721856,
+        "net_profit": 306797
+      }
+    },
+    {
+      "id": "CROP-시설감자",
+      "_example": false,
+      "name": "시설감자",
+      "category": "식량작물",
+      "total_revenue_per_10a": 7027641,
+      "management_cost_per_10a": 3202749,
+      "income_per_10a": 3824892,
+      "income_rate_pct": 48,
+      "unit_price_per_kg": 2532,
+      "yield_per_10a_kg": 2773,
+      "costs": {
+        "materials": 2565065,
+        "fertilizer_inorganic": 91466,
+        "fertilizer_organic": 220209,
+        "pesticide": 55875,
+        "energy": 243772,
+        "materials_etc": 661632,
+        "depreciation_equip": 244442,
+        "depreciation_facility": 368341,
+        "rent": 134115,
+        "consignment": 106134,
+        "hired_labor": 397049
+      },
+      "extra": {
+        "production_cost": 4396405,
+        "value_added": 4462576,
+        "net_profit": 2631236
+      }
+    },
+    {
+      "id": "CROP-가을감자",
+      "_example": false,
+      "name": "가을감자",
+      "category": "식량작물",
+      "total_revenue_per_10a": 2631152,
+      "management_cost_per_10a": 1685251,
+      "income_per_10a": 945902,
+      "income_rate_pct": 25.7,
+      "unit_price_per_kg": 1389,
+      "yield_per_10a_kg": 1894,
+      "costs": {
+        "materials": 1051747,
+        "fertilizer_inorganic": 141387,
+        "fertilizer_organic": 104315,
+        "pesticide": 84354,
+        "energy": 39146,
+        "materials_etc": 151967,
+        "depreciation_equip": 127083,
+        "depreciation_facility": 35171,
+        "rent": 171605,
+        "consignment": 84838,
+        "hired_labor": 375704
+      },
+      "extra": {
+        "production_cost": 2209706,
+        "value_added": 1579405,
+        "net_profit": 421447
+      }
+    },
+    {
+      "id": "CROP-참다래(키위)",
+      "_example": false,
+      "name": "참다래(키위)",
+      "category": "과수",
+      "total_revenue_per_10a": 6469041,
+      "management_cost_per_10a": 2979213,
+      "income_per_10a": 3489828,
+      "income_rate_pct": 43.1,
+      "unit_price_per_kg": 4149,
+      "yield_per_10a_kg": 1532,
+      "costs": {
+        "materials": 2466585,
+        "fertilizer_inorganic": 121968,
+        "fertilizer_organic": 196981,
+        "pesticide": 114893,
+        "energy": 155354,
+        "materials_etc": 457449,
+        "depreciation_equip": 346463,
+        "depreciation_facility": 659845,
+        "rent": 56970,
+        "consignment": 5520,
+        "hired_labor": 442577
+      },
+      "extra": {
+        "production_cost": 6310317,
+        "value_added": 4002456,
+        "net_profit": 158724
+      }
+    },
+    {
+      "id": "CROP-노지포도",
+      "_example": false,
+      "name": "노지포도",
+      "category": "과수",
+      "total_revenue_per_10a": 9864012,
+      "management_cost_per_10a": 4384742,
+      "income_per_10a": 5479269,
+      "income_rate_pct": 51.1,
+      "unit_price_per_kg": 5972,
+      "yield_per_10a_kg": 1652,
+      "costs": {
+        "materials": 3411686,
+        "fertilizer_inorganic": 188521,
+        "fertilizer_organic": 184020,
+        "pesticide": 281217,
+        "energy": 165401,
+        "materials_etc": 915743,
+        "depreciation_equip": 346961,
+        "depreciation_facility": 761949,
+        "rent": 84392,
+        "consignment": 566,
+        "hired_labor": 875991
+      },
+      "extra": {
+        "production_cost": 9846411,
+        "value_added": 6452326,
+        "net_profit": 17601
+      }
+    },
+    {
+      "id": "CROP-자두",
+      "_example": false,
+      "name": "자두",
+      "category": "과수",
+      "total_revenue_per_10a": 4332818,
+      "management_cost_per_10a": 2030414,
+      "income_per_10a": 2302405,
+      "income_rate_pct": 44.4,
+      "unit_price_per_kg": 4012,
+      "yield_per_10a_kg": 1080,
+      "costs": {
+        "materials": 1598288,
+        "fertilizer_inorganic": 117465,
+        "fertilizer_organic": 142473,
+        "pesticide": 294466,
+        "energy": 69880,
+        "materials_etc": 229377,
+        "depreciation_equip": 324548,
+        "depreciation_facility": 189453,
+        "rent": 50458,
+        "consignment": 0,
+        "hired_labor": 377197
+      },
+      "extra": {
+        "production_cost": 4981748,
+        "value_added": 2734531,
+        "net_profit": -648929
+      }
+    },
+    {
+      "id": "CROP-복숭아",
+      "_example": false,
+      "name": "복숭아",
+      "category": "과수",
+      "total_revenue_per_10a": 5238963,
+      "management_cost_per_10a": 2698074,
+      "income_per_10a": 2540889,
+      "income_rate_pct": 40.7,
+      "unit_price_per_kg": 4652,
+      "yield_per_10a_kg": 1126,
+      "costs": {
+        "materials": 2074531,
+        "fertilizer_inorganic": 75206,
+        "fertilizer_organic": 122058,
+        "pesticide": 386690,
+        "energy": 117488,
+        "materials_etc": 431428,
+        "depreciation_equip": 477433,
+        "depreciation_facility": 193029,
+        "rent": 82213,
+        "consignment": 5284,
+        "hired_labor": 524941
+      },
+      "extra": {
+        "production_cost": 5979916,
+        "value_added": 3164432,
+        "net_profit": -740953
+      }
+    },
+    {
+      "id": "CROP-블루베리",
+      "_example": false,
+      "name": "블루베리",
+      "category": "과수",
+      "total_revenue_per_10a": 11639504,
+      "management_cost_per_10a": 5179707,
+      "income_per_10a": 6459798,
+      "income_rate_pct": 50.8,
+      "unit_price_per_kg": 23651,
+      "yield_per_10a_kg": 491,
+      "costs": {
+        "materials": 3577343,
+        "fertilizer_inorganic": 132746,
+        "fertilizer_organic": 183501,
+        "pesticide": 105753,
+        "energy": 427053,
+        "materials_etc": 661523,
+        "depreciation_equip": 290100,
+        "depreciation_facility": 1013696,
+        "rent": 133656,
+        "consignment": 16492,
+        "hired_labor": 1443443
+      },
+      "extra": {
+        "production_cost": 11606599,
+        "value_added": 8062161,
+        "net_profit": 32905
+      }
+    },
+    {
+      "id": "CROP-단감",
+      "_example": false,
+      "name": "단감",
+      "category": "과수",
+      "total_revenue_per_10a": 4002483,
+      "management_cost_per_10a": 1944421,
+      "income_per_10a": 2058061,
+      "income_rate_pct": 41.7,
+      "unit_price_per_kg": 2604,
+      "yield_per_10a_kg": 1537,
+      "costs": {
+        "materials": 1277957,
+        "fertilizer_inorganic": 73531,
+        "fertilizer_organic": 127670,
+        "pesticide": 193806,
+        "energy": 67482,
+        "materials_etc": 273048,
+        "depreciation_equip": 270508,
+        "depreciation_facility": 104662,
+        "rent": 72796,
+        "consignment": 3016,
+        "hired_labor": 578668
+      },
+      "extra": {
+        "production_cost": 4071187,
+        "value_added": 2724526,
+        "net_profit": -68705
+      }
+    },
+    {
+      "id": "CROP-배",
+      "_example": false,
+      "name": "배",
+      "category": "과수",
+      "total_revenue_per_10a": 8178345,
+      "management_cost_per_10a": 3859722,
+      "income_per_10a": 4318622,
+      "income_rate_pct": 45.7,
+      "unit_price_per_kg": 3122,
+      "yield_per_10a_kg": 2620,
+      "costs": {
+        "materials": 2820630,
+        "fertilizer_inorganic": 107161,
+        "fertilizer_organic": 169253,
+        "pesticide": 446451,
+        "energy": 166309,
+        "materials_etc": 789924,
+        "depreciation_equip": 509500,
+        "depreciation_facility": 288599,
+        "rent": 98613,
+        "consignment": 2651,
+        "hired_labor": 923543
+      },
+      "extra": {
+        "production_cost": 6905193,
+        "value_added": 5357715,
+        "net_profit": 1273152
+      }
+    },
+    {
+      "id": "CROP-사과",
+      "_example": false,
+      "name": "사과",
+      "category": "과수",
+      "total_revenue_per_10a": 8820320,
+      "management_cost_per_10a": 3706022,
+      "income_per_10a": 5114297,
+      "income_rate_pct": 47.6,
+      "unit_price_per_kg": 4449,
+      "yield_per_10a_kg": 1982,
+      "costs": {
+        "materials": 2889372,
+        "fertilizer_inorganic": 103935,
+        "fertilizer_organic": 90388,
+        "pesticide": 638333,
+        "energy": 167427,
+        "materials_etc": 360412,
+        "depreciation_equip": 599903,
+        "depreciation_facility": 296985,
+        "rent": 67438,
+        "consignment": 5065,
+        "hired_labor": 733783
+      },
+      "extra": {
+        "production_cost": 6555541,
+        "value_added": 5930948,
+        "net_profit": 2264779
+      }
+    },
+    {
+      "id": "CROP-노지감귤",
+      "_example": false,
+      "name": "노지감귤",
+      "category": "과수",
+      "total_revenue_per_10a": 4536225,
+      "management_cost_per_10a": 1670431,
+      "income_per_10a": 2865794,
+      "income_rate_pct": 55.8,
+      "unit_price_per_kg": 2597,
+      "yield_per_10a_kg": 1747,
+      "costs": {
+        "materials": 1109101,
+        "fertilizer_inorganic": 74803,
+        "fertilizer_organic": 80170,
+        "pesticide": 373136,
+        "energy": 50639,
+        "materials_etc": 89087,
+        "depreciation_equip": 263902,
+        "depreciation_facility": 46746,
+        "rent": 102679,
+        "consignment": 0,
+        "hired_labor": 456603
+      },
+      "extra": {
+        "production_cost": 3893748,
+        "value_added": 3427124,
+        "net_profit": 642477
+      }
+    },
+    {
+      "id": "CROP-시설장미",
+      "_example": false,
+      "name": "시설장미",
+      "category": "화훼",
+      "total_revenue_per_10a": 37257298,
+      "management_cost_per_10a": 23418501,
+      "income_per_10a": 13838797,
+      "income_rate_pct": 33.2,
+      "unit_price_per_kg": 566,
+      "yield_per_10a_kg": 65840,
+      "costs": {
+        "materials": 20263916,
+        "fertilizer_inorganic": 1857649,
+        "fertilizer_organic": 2222,
+        "pesticide": 1214712,
+        "energy": 7496382,
+        "materials_etc": 1884603,
+        "depreciation_equip": 1070199,
+        "depreciation_facility": 4933185,
+        "rent": 768500,
+        "consignment": 0,
+        "hired_labor": 2385041
+      },
+      "extra": {
+        "production_cost": 32335639,
+        "value_added": 16993382,
+        "net_profit": 4921659
+      }
+    },
+    {
+      "id": "CROP-레드향(감평)",
+      "_example": false,
+      "name": "레드향(감평)",
+      "category": "과수",
+      "total_revenue_per_10a": 12708323,
+      "management_cost_per_10a": 6949322,
+      "income_per_10a": 5759001,
+      "income_rate_pct": 33.6,
+      "unit_price_per_kg": 6644,
+      "yield_per_10a_kg": 1913,
+      "costs": {
+        "materials": 6307977,
+        "fertilizer_inorganic": 185615,
+        "fertilizer_organic": 345637,
+        "pesticide": 613211,
+        "energy": 514180,
+        "materials_etc": 869868,
+        "depreciation_equip": 1006806,
+        "depreciation_facility": 2303832,
+        "rent": 22222,
+        "consignment": 0,
+        "hired_labor": 618576
+      },
+      "extra": {
+        "production_cost": 11843636,
+        "value_added": 6400346,
+        "net_profit": 864687
+      }
+    },
+    {
+      "id": "CROP-애플망고",
+      "_example": false,
+      "name": "애플망고",
+      "category": "과수",
+      "total_revenue_per_10a": 14377788,
+      "management_cost_per_10a": 12645797,
+      "income_per_10a": 1731991,
+      "income_rate_pct": 3,
+      "unit_price_per_kg": 27369,
+      "yield_per_10a_kg": 525,
+      "costs": {
+        "materials": 11955542,
+        "fertilizer_inorganic": 259576,
+        "fertilizer_organic": 25644,
+        "pesticide": 199755,
+        "energy": 1959857,
+        "materials_etc": 2856520,
+        "depreciation_equip": 1398832,
+        "depreciation_facility": 3885087,
+        "rent": 50000,
+        "consignment": 0,
+        "hired_labor": 265255
+      },
+      "extra": {
+        "production_cost": 19104748,
+        "value_added": 2422245,
+        "net_profit": -4726960
+      }
+    },
+    {
+      "id": "CROP-시설포도",
+      "_example": false,
+      "name": "시설포도",
+      "category": "과수",
+      "total_revenue_per_10a": 13064112,
+      "management_cost_per_10a": 6015839,
+      "income_per_10a": 7048273,
+      "income_rate_pct": 50.2,
+      "unit_price_per_kg": 8184,
+      "yield_per_10a_kg": 1596,
+      "costs": {
+        "materials": 5174328,
+        "fertilizer_inorganic": 261506,
+        "fertilizer_organic": 259678,
+        "pesticide": 257177,
+        "energy": 954054,
+        "materials_etc": 1057014,
+        "depreciation_equip": 401391,
+        "depreciation_facility": 1353055,
+        "rent": 102149,
+        "consignment": 103,
+        "hired_labor": 715041
+      },
+      "extra": {
+        "production_cost": 11372637,
+        "value_added": 7889784,
+        "net_profit": 1691475
+      }
+    },
+    {
+      "id": "CROP-노지양배추",
+      "_example": false,
+      "name": "노지양배추",
+      "category": "채소",
+      "total_revenue_per_10a": 2498961,
+      "management_cost_per_10a": 1359926,
+      "income_per_10a": 1139035,
+      "income_rate_pct": 42.6,
+      "unit_price_per_kg": 405,
+      "yield_per_10a_kg": 6174,
+      "costs": {
+        "materials": 915197,
+        "fertilizer_inorganic": 131575,
+        "fertilizer_organic": 160044,
+        "pesticide": 155098,
+        "energy": 35195,
+        "materials_etc": 80216,
+        "depreciation_equip": 159030,
+        "depreciation_facility": 40477,
+        "rent": 131148,
+        "consignment": 58314,
+        "hired_labor": 250890
+      },
+      "extra": {
+        "production_cost": 1970826,
+        "value_added": 1583764,
+        "net_profit": 528135
+      }
+    },
+    {
+      "id": "CROP-노지봄배추",
+      "_example": false,
+      "name": "노지봄배추",
+      "category": "채소",
+      "total_revenue_per_10a": 2501713,
+      "management_cost_per_10a": 1343294,
+      "income_per_10a": 1158419,
+      "income_rate_pct": 38.6,
+      "unit_price_per_kg": 351,
+      "yield_per_10a_kg": 7122,
+      "costs": {
+        "materials": 950500,
+        "fertilizer_inorganic": 141625,
+        "fertilizer_organic": 150237,
+        "pesticide": 132949,
+        "energy": 28157,
+        "materials_etc": 87304,
+        "depreciation_equip": 163809,
+        "depreciation_facility": 52793,
+        "rent": 73543,
+        "consignment": 77080,
+        "hired_labor": 235133
+      },
+      "extra": {
+        "production_cost": 2179938,
+        "value_added": 1551213,
+        "net_profit": 321775
+      }
+    },
+    {
+      "id": "CROP-노지가을배추",
+      "_example": false,
+      "name": "노지가을배추",
+      "category": "채소",
+      "total_revenue_per_10a": 4136819,
+      "management_cost_per_10a": 1533753,
+      "income_per_10a": 2603067,
+      "income_rate_pct": 54,
+      "unit_price_per_kg": 672,
+      "yield_per_10a_kg": 6155,
+      "costs": {
+        "materials": 1126650,
+        "fertilizer_inorganic": 142076,
+        "fertilizer_organic": 118307,
+        "pesticide": 188766,
+        "energy": 50577,
+        "materials_etc": 132908,
+        "depreciation_equip": 255148,
+        "depreciation_facility": 44643,
+        "rent": 74399,
+        "consignment": 35862,
+        "hired_labor": 292358
+      },
+      "extra": {
+        "production_cost": 2946386,
+        "value_added": 3010170,
+        "net_profit": 1190433
+      }
+    },
+    {
+      "id": "CROP-노지고랭지배추",
+      "_example": false,
+      "name": "노지고랭지배추",
+      "category": "채소",
+      "total_revenue_per_10a": 2754908,
+      "management_cost_per_10a": 1541629,
+      "income_per_10a": 1213278,
+      "income_rate_pct": 39.2,
+      "unit_price_per_kg": 566,
+      "yield_per_10a_kg": 4865,
+      "costs": {
+        "materials": 1010099,
+        "fertilizer_inorganic": 140376,
+        "fertilizer_organic": 162284,
+        "pesticide": 238018,
+        "energy": 42901,
+        "materials_etc": 76857,
+        "depreciation_equip": 136436,
+        "depreciation_facility": 26337,
+        "rent": 124575,
+        "consignment": 108767,
+        "hired_labor": 296917
+      },
+      "extra": {
+        "production_cost": 2228967,
+        "value_added": 1744809,
+        "net_profit": 525940
+      }
+    },
+    {
+      "id": "CROP-노지고랭지무",
+      "_example": false,
+      "name": "노지고랭지무",
+      "category": "채소",
+      "total_revenue_per_10a": 3806962,
+      "management_cost_per_10a": 1832245,
+      "income_per_10a": 1974717,
+      "income_rate_pct": 51.4,
+      "unit_price_per_kg": 508,
+      "yield_per_10a_kg": 7490,
+      "costs": {
+        "materials": 1072248,
+        "fertilizer_inorganic": 124367,
+        "fertilizer_organic": 196084,
+        "pesticide": 205112,
+        "energy": 28662,
+        "materials_etc": 194103,
+        "depreciation_equip": 149037,
+        "depreciation_facility": 37877,
+        "rent": 199501,
+        "consignment": 129042,
+        "hired_labor": 428079
+      },
+      "extra": {
+        "production_cost": 2626887,
+        "value_added": 2734715,
+        "net_profit": 1180075
+      }
+    },
+    {
+      "id": "CROP-노지생강",
+      "_example": false,
+      "name": "노지생강",
+      "category": "채소",
+      "total_revenue_per_10a": 8472194,
+      "management_cost_per_10a": 4301341,
+      "income_per_10a": 4170854,
+      "income_rate_pct": 45.8,
+      "unit_price_per_kg": 4505,
+      "yield_per_10a_kg": 1873,
+      "costs": {
+        "materials": 2816429,
+        "fertilizer_inorganic": 225792,
+        "fertilizer_organic": 273009,
+        "pesticide": 228506,
+        "energy": 75301,
+        "materials_etc": 331694,
+        "depreciation_equip": 231961,
+        "depreciation_facility": 175089,
+        "rent": 128420,
+        "consignment": 14965,
+        "hired_labor": 1337944
+      },
+      "extra": {
+        "production_cost": 6479847,
+        "value_added": 5655765,
+        "net_profit": 1992347
+      }
+    },
+    {
+      "id": "CROP-노지연근",
+      "_example": false,
+      "name": "노지연근",
+      "category": "채소",
+      "total_revenue_per_10a": 5281608,
+      "management_cost_per_10a": 2923379,
+      "income_per_10a": 2358229,
+      "income_rate_pct": 27.6,
+      "unit_price_per_kg": 2538,
+      "yield_per_10a_kg": 2077,
+      "costs": {
+        "materials": 1968403,
+        "fertilizer_inorganic": 127478,
+        "fertilizer_organic": 94721,
+        "pesticide": 12211,
+        "energy": 129996,
+        "materials_etc": 252947,
+        "depreciation_equip": 230234,
+        "depreciation_facility": 41230,
+        "rent": 418221,
+        "consignment": 1065,
+        "hired_labor": 516584
+      },
+      "extra": {
+        "production_cost": 4896050,
+        "value_added": 3313205,
+        "net_profit": 385558
+      }
+    },
+    {
+      "id": "CROP-노지가을무",
+      "_example": false,
+      "name": "노지가을무",
+      "category": "채소",
+      "total_revenue_per_10a": 2796080,
+      "management_cost_per_10a": 1264566,
+      "income_per_10a": 1531514,
+      "income_rate_pct": 46.8,
+      "unit_price_per_kg": 557,
+      "yield_per_10a_kg": 4928,
+      "costs": {
+        "materials": 815902,
+        "fertilizer_inorganic": 85443,
+        "fertilizer_organic": 93352,
+        "pesticide": 117543,
+        "energy": 56425,
+        "materials_etc": 89434,
+        "depreciation_equip": 169701,
+        "depreciation_facility": 45415,
+        "rent": 100515,
+        "consignment": 46098,
+        "hired_labor": 299741
+      },
+      "extra": {
+        "production_cost": 2053843,
+        "value_added": 1980178,
+        "net_profit": 742236
+      }
+    },
+    {
+      "id": "CROP-노지우엉",
+      "_example": false,
+      "name": "노지우엉",
+      "category": "채소",
+      "total_revenue_per_10a": 6429060,
+      "management_cost_per_10a": 3352919,
+      "income_per_10a": 3076140,
+      "income_rate_pct": 41,
+      "unit_price_per_kg": 2520,
+      "yield_per_10a_kg": 2552,
+      "costs": {
+        "materials": 1455319,
+        "fertilizer_inorganic": 136170,
+        "fertilizer_organic": 184608,
+        "pesticide": 132291,
+        "energy": 85117,
+        "materials_etc": 215308,
+        "depreciation_equip": 262103,
+        "depreciation_facility": 264177,
+        "rent": 370393,
+        "consignment": 270805,
+        "hired_labor": 1227875
+      },
+      "extra": {
+        "production_cost": 4288224,
+        "value_added": 4973740,
+        "net_profit": 2140835
+      }
+    },
+    {
+      "id": "CROP-노지부지갱이",
+      "_example": false,
+      "name": "노지부지갱이",
+      "category": "채소",
+      "total_revenue_per_10a": 5537956,
+      "management_cost_per_10a": 2424116,
+      "income_per_10a": 3113840,
+      "income_rate_pct": 52,
+      "unit_price_per_kg": 5965,
+      "yield_per_10a_kg": 893,
+      "costs": {
+        "materials": 1357015,
+        "fertilizer_inorganic": 114981,
+        "fertilizer_organic": 458009,
+        "pesticide": 0,
+        "energy": 113103,
+        "materials_etc": 113804,
+        "depreciation_equip": 242969,
+        "depreciation_facility": 214607,
+        "rent": 27500,
+        "consignment": 0,
+        "hired_labor": 1039601
+      },
+      "extra": {
+        "production_cost": 5831630,
+        "value_added": 4180941,
+        "net_profit": -293674
+      }
+    },
+    {
+      "id": "CROP-노지당근",
+      "_example": false,
+      "name": "노지당근",
+      "category": "채소",
+      "total_revenue_per_10a": 6275072,
+      "management_cost_per_10a": 2461740,
+      "income_per_10a": 3813332,
+      "income_rate_pct": 56.3,
+      "unit_price_per_kg": 1772,
+      "yield_per_10a_kg": 3542,
+      "costs": {
+        "materials": 1419628,
+        "fertilizer_inorganic": 109439,
+        "fertilizer_organic": 218401,
+        "pesticide": 148432,
+        "energy": 56136,
+        "materials_etc": 191274,
+        "depreciation_equip": 271053,
+        "depreciation_facility": 51789,
+        "rent": 235376,
+        "consignment": 89828,
+        "hired_labor": 716166
+      },
+      "extra": {
+        "production_cost": 3226918,
+        "value_added": 4855444,
+        "net_profit": 3048155
+      }
+    },
+    {
+      "id": "CROP-노지대파",
+      "_example": false,
+      "name": "노지대파",
+      "category": "채소",
+      "total_revenue_per_10a": 4569980,
+      "management_cost_per_10a": 1915197,
+      "income_per_10a": 2654782,
+      "income_rate_pct": 50.1,
+      "unit_price_per_kg": 1196,
+      "yield_per_10a_kg": 3821,
+      "costs": {
+        "materials": 1226242,
+        "fertilizer_inorganic": 125741,
+        "fertilizer_organic": 164236,
+        "pesticide": 213637,
+        "energy": 52358,
+        "materials_etc": 110051,
+        "depreciation_equip": 231922,
+        "depreciation_facility": 51715,
+        "rent": 155767,
+        "consignment": 53798,
+        "hired_labor": 476361
+      },
+      "extra": {
+        "production_cost": 3661004,
+        "value_added": 3343737,
+        "net_profit": 908976
+      }
+    },
+    {
+      "id": "CROP-노지시금치",
+      "_example": false,
+      "name": "노지시금치",
+      "category": "채소",
+      "total_revenue_per_10a": 3786633,
+      "management_cost_per_10a": 1205375,
+      "income_per_10a": 2581259,
+      "income_rate_pct": 57.4,
+      "unit_price_per_kg": 3870,
+      "yield_per_10a_kg": 978,
+      "costs": {
+        "materials": 863114,
+        "fertilizer_inorganic": 91432,
+        "fertilizer_organic": 154335,
+        "pesticide": 35312,
+        "energy": 53022,
+        "materials_etc": 141044,
+        "depreciation_equip": 209995,
+        "depreciation_facility": 48527,
+        "rent": 63820,
+        "consignment": 14404,
+        "hired_labor": 260959
+      },
+      "extra": {
+        "production_cost": 4412117,
+        "value_added": 2923520,
+        "net_profit": -625483
+      }
+    },
+    {
+      "id": "CROP-노지쪽파",
+      "_example": false,
+      "name": "노지쪽파",
+      "category": "채소",
+      "total_revenue_per_10a": 5873196,
+      "management_cost_per_10a": 2791661,
+      "income_per_10a": 3081534,
+      "income_rate_pct": 47.6,
+      "unit_price_per_kg": 3638,
+      "yield_per_10a_kg": 1614,
+      "costs": {
+        "materials": 1953471,
+        "fertilizer_inorganic": 163957,
+        "fertilizer_organic": 187733,
+        "pesticide": 106115,
+        "energy": 86516,
+        "materials_etc": 203975,
+        "depreciation_equip": 281781,
+        "depreciation_facility": 97863,
+        "rent": 125477,
+        "consignment": 74803,
+        "hired_labor": 629275
+      },
+      "extra": {
+        "production_cost": 5753980,
+        "value_added": 3919724,
+        "net_profit": 119216
+      }
+    },
+    {
+      "id": "CROP-노지수박",
+      "_example": false,
+      "name": "노지수박",
+      "category": "채소",
+      "total_revenue_per_10a": 4910955,
+      "management_cost_per_10a": 2384712,
+      "income_per_10a": 2526242,
+      "income_rate_pct": 45.5,
+      "unit_price_per_kg": 1096,
+      "yield_per_10a_kg": 4481,
+      "costs": {
+        "materials": 1351985,
+        "fertilizer_inorganic": 132866,
+        "fertilizer_organic": 151455,
+        "pesticide": 252060,
+        "energy": 40859,
+        "materials_etc": 226019,
+        "depreciation_equip": 141991,
+        "depreciation_facility": 15340,
+        "rent": 136235,
+        "consignment": 49676,
+        "hired_labor": 840905
+      },
+      "extra": {
+        "production_cost": 3373788,
+        "value_added": 3558970,
+        "net_profit": 1537167
+      }
+    },
+    {
+      "id": "CROP-시설딸기(수경)",
+      "_example": false,
+      "name": "시설딸기(수경)",
+      "category": "채소",
+      "total_revenue_per_10a": 35781730,
+      "management_cost_per_10a": 20782965,
+      "income_per_10a": 14998764,
+      "income_rate_pct": 38.4,
+      "unit_price_per_kg": 10868,
+      "yield_per_10a_kg": 3292,
+      "costs": {
+        "materials": 17580092,
+        "fertilizer_inorganic": 1066555,
+        "fertilizer_organic": 32051,
+        "pesticide": 648963,
+        "energy": 2388555,
+        "materials_etc": 3027575,
+        "depreciation_equip": 864644,
+        "depreciation_facility": 3925157,
+        "rent": 255339,
+        "consignment": 33265,
+        "hired_labor": 2865487
+      },
+      "extra": {
+        "production_cost": 34570220,
+        "value_added": 18201638,
+        "net_profit": 1211510
+      }
+    },
+    {
+      "id": "CROP-시설토마토(수경)",
+      "_example": false,
+      "name": "시설토마토(수경)",
+      "category": "채소",
+      "total_revenue_per_10a": 42014598,
+      "management_cost_per_10a": 24369593,
+      "income_per_10a": 17645005,
+      "income_rate_pct": 37.8,
+      "unit_price_per_kg": 2936,
+      "yield_per_10a_kg": 14310,
+      "costs": {
+        "materials": 20281285,
+        "fertilizer_inorganic": 1693068,
+        "fertilizer_organic": 4286,
+        "pesticide": 414390,
+        "energy": 4835465,
+        "materials_etc": 4767237,
+        "depreciation_equip": 1516371,
+        "depreciation_facility": 5061794,
+        "rent": 166663,
+        "consignment": 5663,
+        "hired_labor": 3899690
+      },
+      "extra": {
+        "production_cost": 35472126,
+        "value_added": 21733314,
+        "net_profit": 6542473
+      }
+    },
+    {
+      "id": "CROP-시설방울토마토(수경)",
+      "_example": false,
+      "name": "시설방울토마토(수경)",
+      "category": "채소",
+      "total_revenue_per_10a": 28862575,
+      "management_cost_per_10a": 16780458,
+      "income_per_10a": 12082117,
+      "income_rate_pct": 38.8,
+      "unit_price_per_kg": 4271,
+      "yield_per_10a_kg": 6758,
+      "costs": {
+        "materials": 12947898,
+        "fertilizer_inorganic": 1222827,
+        "fertilizer_organic": 6438,
+        "pesticide": 297749,
+        "energy": 3414773,
+        "materials_etc": 2777203,
+        "depreciation_equip": 857011,
+        "depreciation_facility": 2366983,
+        "rent": 218891,
+        "consignment": 211304,
+        "hired_labor": 3339431
+      },
+      "extra": {
+        "production_cost": 24659195,
+        "value_added": 15914677,
+        "net_profit": 4203380
+      }
+    },
+    {
+      "id": "CROP-시설참외",
+      "_example": false,
+      "name": "시설참외",
+      "category": "채소",
+      "total_revenue_per_10a": 13193589,
+      "management_cost_per_10a": 6171572,
+      "income_per_10a": 7022018,
+      "income_rate_pct": 48.5,
+      "unit_price_per_kg": 3255,
+      "yield_per_10a_kg": 4053,
+      "costs": {
+        "materials": 4910423,
+        "fertilizer_inorganic": 414068,
+        "fertilizer_organic": 285596,
+        "pesticide": 450049,
+        "energy": 139390,
+        "materials_etc": 1728933,
+        "depreciation_equip": 438780,
+        "depreciation_facility": 921297,
+        "rent": 351500,
+        "consignment": 43621,
+        "hired_labor": 840674
+      },
+      "extra": {
+        "production_cost": 10703260,
+        "value_added": 8283167,
+        "net_profit": 2490329
+      }
+    },
+    {
+      "id": "CROP-시설아스파라거스",
+      "_example": false,
+      "name": "시설아스파라거스",
+      "category": "채소",
+      "total_revenue_per_10a": 10733921,
+      "management_cost_per_10a": 5480209,
+      "income_per_10a": 5253712,
+      "income_rate_pct": 48,
+      "unit_price_per_kg": 8894,
+      "yield_per_10a_kg": 1207,
+      "costs": {
+        "materials": 3613046,
+        "fertilizer_inorganic": 403818,
+        "fertilizer_organic": 258718,
+        "pesticide": 228779,
+        "energy": 172105,
+        "materials_etc": 265831,
+        "depreciation_equip": 515671,
+        "depreciation_facility": 1456643,
+        "rent": 158333,
+        "consignment": 0,
+        "hired_labor": 1708501
+      },
+      "extra": {
+        "production_cost": 10888888,
+        "value_added": 7120875,
+        "net_profit": -154967
+      }
+    },
+    {
+      "id": "CROP-시설시금치",
+      "_example": false,
+      "name": "시설시금치",
+      "category": "채소",
+      "total_revenue_per_10a": 5143116,
+      "management_cost_per_10a": 2208166,
+      "income_per_10a": 2934950,
+      "income_rate_pct": 49,
+      "unit_price_per_kg": 3365,
+      "yield_per_10a_kg": 1528,
+      "costs": {
+        "materials": 1443407,
+        "fertilizer_inorganic": 84342,
+        "fertilizer_organic": 156690,
+        "pesticide": 46792,
+        "energy": 65789,
+        "materials_etc": 353126,
+        "depreciation_equip": 165199,
+        "depreciation_facility": 405881,
+        "rent": 88759,
+        "consignment": 6519,
+        "hired_labor": 651951
+      },
+      "extra": {
+        "production_cost": 3999022,
+        "value_added": 3699709,
+        "net_profit": 1144094
+      }
+    },
+    {
+      "id": "CROP-시설부추",
+      "_example": false,
+      "name": "시설부추",
+      "category": "채소",
+      "total_revenue_per_10a": 12290946,
+      "management_cost_per_10a": 7042152,
+      "income_per_10a": 5248793,
+      "income_rate_pct": 37.5,
+      "unit_price_per_kg": 3196,
+      "yield_per_10a_kg": 3846,
+      "costs": {
+        "materials": 4141910,
+        "fertilizer_inorganic": 214566,
+        "fertilizer_organic": 475287,
+        "pesticide": 179794,
+        "energy": 283790,
+        "materials_etc": 1056935,
+        "depreciation_equip": 395574,
+        "depreciation_facility": 1109662,
+        "rent": 407170,
+        "consignment": 22896,
+        "hired_labor": 2446125
+      },
+      "extra": {
+        "production_cost": 12101376,
+        "value_added": 8149036,
+        "net_profit": 189570
+      }
+    },
+    {
+      "id": "CROP-시설수박",
+      "_example": false,
+      "name": "시설수박",
+      "category": "채소",
+      "total_revenue_per_10a": 7135084,
+      "management_cost_per_10a": 3500230,
+      "income_per_10a": 3634855,
+      "income_rate_pct": 44.4,
+      "unit_price_per_kg": 1606,
+      "yield_per_10a_kg": 4442,
+      "costs": {
+        "materials": 2686291,
+        "fertilizer_inorganic": 138332,
+        "fertilizer_organic": 251351,
+        "pesticide": 170265,
+        "energy": 121130,
+        "materials_etc": 673312,
+        "depreciation_equip": 204512,
+        "depreciation_facility": 475466,
+        "rent": 141138,
+        "consignment": 27203,
+        "hired_labor": 638594
+      },
+      "extra": {
+        "production_cost": 5604200,
+        "value_added": 4448793,
+        "net_profit": 1530884
+      }
+    },
+    {
+      "id": "CROP-시설방울토마토",
+      "_example": false,
+      "name": "시설방울토마토",
+      "category": "채소",
+      "total_revenue_per_10a": 20255687,
+      "management_cost_per_10a": 9565134,
+      "income_per_10a": 10690553,
+      "income_rate_pct": 47.1,
+      "unit_price_per_kg": 4704,
+      "yield_per_10a_kg": 4306,
+      "costs": {
+        "materials": 7933405,
+        "fertilizer_inorganic": 314858,
+        "fertilizer_organic": 284104,
+        "pesticide": 297631,
+        "energy": 1572933,
+        "materials_etc": 1972356,
+        "depreciation_equip": 504456,
+        "depreciation_facility": 1460602,
+        "rent": 203323,
+        "consignment": 22732,
+        "hired_labor": 1397853
+      },
+      "extra": {
+        "production_cost": 16881857,
+        "value_added": 12322282,
+        "net_profit": 3373830
+      }
+    },
+    {
+      "id": "CROP-시설토마토",
+      "_example": false,
+      "name": "시설토마토",
+      "category": "채소",
+      "total_revenue_per_10a": 20509637,
+      "management_cost_per_10a": 9768283,
+      "income_per_10a": 10741353,
+      "income_rate_pct": 48.3,
+      "unit_price_per_kg": 3294,
+      "yield_per_10a_kg": 6226,
+      "costs": {
+        "materials": 7557693,
+        "fertilizer_inorganic": 373476,
+        "fertilizer_organic": 396520,
+        "pesticide": 319132,
+        "energy": 1255141,
+        "materials_etc": 1779029,
+        "depreciation_equip": 530394,
+        "depreciation_facility": 1299303,
+        "rent": 527421,
+        "consignment": 11694,
+        "hired_labor": 1642217
+      },
+      "extra": {
+        "production_cost": 17233621,
+        "value_added": 12951943,
+        "net_profit": 3276016
+      }
+    },
+    {
+      "id": "CROP-시설상추",
+      "_example": false,
+      "name": "시설상추",
+      "category": "채소",
+      "total_revenue_per_10a": 11629071,
+      "management_cost_per_10a": 6608669,
+      "income_per_10a": 5020401,
+      "income_rate_pct": 33.2,
+      "unit_price_per_kg": 3508,
+      "yield_per_10a_kg": 3315,
+      "costs": {
+        "materials": 4620162,
+        "fertilizer_inorganic": 243919,
+        "fertilizer_organic": 196170,
+        "pesticide": 202673,
+        "energy": 337305,
+        "materials_etc": 1225676,
+        "depreciation_equip": 602176,
+        "depreciation_facility": 1242530,
+        "rent": 168175,
+        "consignment": 8095,
+        "hired_labor": 1799389
+      },
+      "extra": {
+        "production_cost": 12137082,
+        "value_added": 7008908,
+        "net_profit": -508011
+      }
+    },
+    {
+      "id": "CROP-시설딸기",
+      "_example": false,
+      "name": "시설딸기",
+      "category": "채소",
+      "total_revenue_per_10a": 26307065,
+      "management_cost_per_10a": 15620841,
+      "income_per_10a": 10686223,
+      "income_rate_pct": 36.2,
+      "unit_price_per_kg": 9094,
+      "yield_per_10a_kg": 2893,
+      "costs": {
+        "materials": 12689860,
+        "fertilizer_inorganic": 449112,
+        "fertilizer_organic": 228301,
+        "pesticide": 480752,
+        "energy": 1168043,
+        "materials_etc": 2718157,
+        "depreciation_equip": 423187,
+        "depreciation_facility": 1800874,
+        "rent": 337966,
+        "consignment": 32941,
+        "hired_labor": 2529214
+      },
+      "extra": {
+        "production_cost": 25225278,
+        "value_added": 13617204,
+        "net_profit": 1081786
+      }
+    },
+    {
+      "id": "CROP-시설오이",
+      "_example": false,
+      "name": "시설오이",
+      "category": "채소",
+      "total_revenue_per_10a": 25183583,
+      "management_cost_per_10a": 12299942,
+      "income_per_10a": 12883641,
+      "income_rate_pct": 47.4,
+      "unit_price_per_kg": 2397,
+      "yield_per_10a_kg": 10505,
+      "costs": {
+        "materials": 10018737,
+        "fertilizer_inorganic": 800269,
+        "fertilizer_organic": 552673,
+        "pesticide": 713368,
+        "energy": 2445316,
+        "materials_etc": 1732904,
+        "depreciation_equip": 801048,
+        "depreciation_facility": 1641717,
+        "rent": 198825,
+        "consignment": 38953,
+        "hired_labor": 2004907
+      },
+      "extra": {
+        "production_cost": 21725415,
+        "value_added": 15164846,
+        "net_profit": 3458168
+      }
+    },
+    {
+      "id": "CROP-시설호박",
+      "_example": false,
+      "name": "시설호박",
+      "category": "채소",
+      "total_revenue_per_10a": 18633705,
+      "management_cost_per_10a": 7842191,
+      "income_per_10a": 10791514,
+      "income_rate_pct": 53.8,
+      "unit_price_per_kg": 2142,
+      "yield_per_10a_kg": 8700,
+      "costs": {
+        "materials": 6380586,
+        "fertilizer_inorganic": 448508,
+        "fertilizer_organic": 383368,
+        "pesticide": 305118,
+        "energy": 1392330,
+        "materials_etc": 1697806,
+        "depreciation_equip": 442403,
+        "depreciation_facility": 1070549,
+        "rent": 283662,
+        "consignment": 50685,
+        "hired_labor": 1093654
+      },
+      "extra": {
+        "production_cost": 14547206,
+        "value_added": 12253119,
+        "net_profit": 4086499
+      }
+    },
+    {
+      "id": "CROP-시설단고추(피망)",
+      "_example": false,
+      "name": "시설단고추(피망)",
+      "category": "채소",
+      "total_revenue_per_10a": 13808330,
+      "management_cost_per_10a": 7172187,
+      "income_per_10a": 6636142,
+      "income_rate_pct": 44.3,
+      "unit_price_per_kg": 2626,
+      "yield_per_10a_kg": 5259,
+      "costs": {
+        "materials": 4446211,
+        "fertilizer_inorganic": 241292,
+        "fertilizer_organic": 409983,
+        "pesticide": 367926,
+        "energy": 360640,
+        "materials_etc": 1160356,
+        "depreciation_equip": 243850,
+        "depreciation_facility": 1086110,
+        "rent": 109980,
+        "consignment": 0,
+        "hired_labor": 2587246
+      },
+      "extra": {
+        "production_cost": 9927513,
+        "value_added": 9362118,
+        "net_profit": 3880817
+      }
+    },
+    {
+      "id": "CROP-시설고추",
+      "_example": false,
+      "name": "시설고추",
+      "category": "채소",
+      "total_revenue_per_10a": 22359106,
+      "management_cost_per_10a": 9764164,
+      "income_per_10a": 12594942,
+      "income_rate_pct": 48.3,
+      "unit_price_per_kg": 4446,
+      "yield_per_10a_kg": 5028,
+      "costs": {
+        "materials": 7695389,
+        "fertilizer_inorganic": 405979,
+        "fertilizer_organic": 396431,
+        "pesticide": 790835,
+        "energy": 2011910,
+        "materials_etc": 1264595,
+        "depreciation_equip": 421959,
+        "depreciation_facility": 1437938,
+        "rent": 189219,
+        "consignment": 27605,
+        "hired_labor": 1843513
+      },
+      "extra": {
+        "production_cost": 16519074,
+        "value_added": 14663717,
+        "net_profit": 5840032
+      }
+    },
+    {
+      "id": "CROP-시설멜론",
+      "_example": false,
+      "name": "시설멜론",
+      "category": "채소",
+      "total_revenue_per_10a": 10391860,
+      "management_cost_per_10a": 5861347,
+      "income_per_10a": 4530513,
+      "income_rate_pct": 37.9,
+      "unit_price_per_kg": 3856,
+      "yield_per_10a_kg": 2695,
+      "costs": {
+        "materials": 4891599,
+        "fertilizer_inorganic": 204319,
+        "fertilizer_organic": 175064,
+        "pesticide": 234102,
+        "energy": 304681,
+        "materials_etc": 1191827,
+        "depreciation_equip": 557606,
+        "depreciation_facility": 1283464,
+        "rent": 183364,
+        "consignment": 24336,
+        "hired_labor": 727308
+      },
+      "extra": {
+        "production_cost": 9524855,
+        "value_added": 5500261,
+        "net_profit": 867005
+      }
     }
   ]
 }

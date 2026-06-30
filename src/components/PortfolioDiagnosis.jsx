@@ -1,12 +1,25 @@
 import { useState, useEffect, useRef } from "react";
-import { theme } from "../theme";
-import { loadRdaCases, loadPublicDatasets } from "../lib/dataLoader";
-import { CROP_REGISTRY } from "../lib/cropRegistry";
+import { theme, card, badge } from "../theme";
+import { loadRdaCases, loadPublicDatasets, loadIncomeData } from "../lib/dataLoader";
+import { CROP_REGISTRY, findCrop, parseUnitKg } from "../lib/cropRegistry";
+import { classifySupplyStageByItem } from "../lib/supplyThresholds";
 
 // 이 파일은 농가판매경로_AI시스템.jsx(v8)의 로직(행동기반 5문항 분류, TOPSIS 계산,
 // Layer1/Layer2 프롬프트)을 그대로 가져와 AGR 대시보드의 다크 테마 탭 안에 옮긴 것입니다.
 // 판단 로직(가중치·점수·분류 규칙·프롬프트 문구)은 변경하지 않았고, 시각 스타일과
 // "사례 선택" 연동만 추가했습니다.
+
+// 농산물 수급관리 가이드라인(공공데이터 카탈로그) 연계 ID — 경영 진단 인사이트용
+const SUPPLY_GUIDE_ID = "MAFRA-SUPPLY-2025-01";
+
+// 현재 도매가의 평년 대비 편차(%)를 수급 단계로 분류 (작목 공통 밴드, 추정치)
+function classifySupplyStage(dev) {
+  if (dev >= 30)  return { label: "가격 급등 · 공급부족 우려", color: theme.danger, band: "평년 대비 +30% 이상" };
+  if (dev >= 15)  return { label: "상승 주의",               color: theme.warn,   band: "평년 대비 +15~30%" };
+  if (dev > -15)  return { label: "안정",                    color: theme.accent, band: "평년 대비 ±15% 이내" };
+  if (dev > -30)  return { label: "하락 주의",               color: theme.warn,   band: "평년 대비 -15~-30%" };
+  return            { label: "가격 급락 · 공급과잉 우려",     color: theme.danger, band: "평년 대비 -30% 이하" };
+}
 
 // ─── 상수 정의 (v8과 동일) ────────────────────────────────────
 const ROUTES = ["도매시장", "생산자단체(조직출하)", "직거래(온라인)", "직거래(로컬푸드)", "산지유통인"];
@@ -218,8 +231,147 @@ function calcC5Adjustments(form) {
   return adj;
 }
 
-// ─── 레이어1 AI 분석 프롬프트 생성 (v8과 동일) ───────────────
-function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, consumerInsight) {
+// ─── 소득자료(AMIS) 연계: 작목 매칭 + 수익성·원가 근거 ──────────
+// 작형 접두어 — 소득자료 작목명에서 떼어내 "핵심 작목명"을 얻는다
+const FORM_PREFIXES = ["노지", "시설", "봄", "가을", "겨울", "여름", "고랭지", "촉성", "반촉성", "억제", "조생", "중생", "만생", "수경", "토경"];
+function coreName(s) {
+  let x = String(s || "").replace(/\(.*?\)/g, "").trim(); // 괄호 주석 제거: 시설단고추(피망)→시설단고추
+  for (;;) {
+    const p = FORM_PREFIXES.find((pre) => x.startsWith(pre) && x.length > pre.length);
+    if (!p) break;
+    x = x.slice(p.length);
+  }
+  return x;
+}
+
+// 농가 입력 품목명 → income-data.json 작목 매칭 (정밀: 핵심 작목명 일치만 인정)
+// "고추"→시설단고추(피망), "배추"→양배추 같은 오매칭을 막기 위해 부분일치는 쓰지 않는다.
+function findIncome(cropName, list) {
+  if (!cropName) return null;
+  const arr = list || [];
+  const t = cropName.trim();
+  const tc = coreName(t);
+  return (
+    arr.find((c) => c.name === t) ||            // 1) 정확히 동일
+    arr.find((c) => coreName(c.name) === t) ||  // 2) 작형 떼면 입력과 동일 (예: 입력"감자"→봄감자)
+    arr.find((c) => coreName(c.name) === tc) || // 3) 양쪽 핵심 동일 (예: 입력"노지고추"→고추)
+    null
+  );
+}
+
+// 매칭된 소득자료로 비중·비교를 계산해 화면/프롬프트 공용으로 반환
+function deriveIncomeEvidence(bench, curPriceStr) {
+  if (!bench) return null;
+  const mgmt = bench.management_cost_per_10a || 0;
+  const costs = bench.costs || {};
+  const pct = (v) => (mgmt && v != null ? Math.round((v / mgmt) * 1000) / 10 : null);
+  const curPrice = parseFloat(curPriceStr);
+  const avgPrice = bench.unit_price_per_kg || 0;
+  const priceGapPct =
+    curPrice && avgPrice ? Math.round(((curPrice - avgPrice) / avgPrice) * 1000) / 10 : null;
+  return {
+    name: bench.name,
+    avgPrice,
+    incomeRate: bench.income_rate_pct,
+    income10a: bench.income_per_10a,
+    laborShare: pct(costs.hired_labor),       // 고용노동비 비중(%)
+    materialsShare: pct(costs.materials),     // 중간재비 비중(%)
+    pesticideShare: pct(costs.pesticide),     // 농약비 비중(%)
+    curPrice: Number.isFinite(curPrice) ? curPrice : null,
+    priceGapPct,
+  };
+}
+
+// 레이어1 프롬프트에 넣을 [수익성·원가 기준선] 블록 문자열
+// actual: 농가 입력값으로 계산한 실제 소득률 등 (선택 입력에 따라 일부 null 가능)
+function buildIncomeBlock(ev, inputCrop, actual) {
+  if (!ev) {
+    return "[수익성·원가 기준선]\n- 이 품목은 소득자료(AMIS)에 매칭되는 작목이 없어 일반적인 수익성 기준으로 판단한다. 근거 없는 수익 수치는 만들지 마라.";
+  }
+  const lines = [
+    "[수익성·원가 기준선 (AMIS 농축산물 소득자료 · 전국 평균 · 10a 기준)]",
+    `- 대상 작목: ${ev.name}${inputCrop && inputCrop !== ev.name ? ` (농가 입력: ${inputCrop})` : ""}`,
+    `- 전국 평균 단가: ${ev.avgPrice ? ev.avgPrice.toLocaleString() + "원/kg" : "미상"}`,
+    `- 전국 평균 소득률: ${ev.incomeRate ?? "미상"}% / 10a당 소득 ${ev.income10a ? ev.income10a.toLocaleString() + "원" : "미상"}`,
+    `- 경영비 구조: 고용노동비 비중 ${ev.laborShare ?? "?"}%, 중간재(자재)비 비중 ${ev.materialsShare ?? "?"}% (이 중 농약비 ${ev.pesticideShare ?? "?"}%)`,
+  ];
+  if (ev.curPrice != null && ev.priceGapPct != null) {
+    lines.push(
+      `- 농가 현재 단가: ${ev.curPrice.toLocaleString()}원/kg → 전국 평균 대비 ${ev.priceGapPct >= 0 ? "+" : ""}${ev.priceGapPct}% (${ev.priceGapPct < 0 ? "낮음" : "높음"})`
+    );
+  }
+  // 농가가 경영비까지 입력해 실제 소득률이 계산된 경우 — 전국 평균과 직접 비교
+  if (actual && actual.incomeRate != null) {
+    const gap = ev.incomeRate != null ? Math.round((actual.incomeRate - ev.incomeRate) * 10) / 10 : null;
+    lines.push(
+      `- 농가 실제 소득률(입력 기반): ${actual.incomeRate.toFixed(1)}%` +
+        (gap != null ? ` → 전국 평균 대비 ${gap >= 0 ? "+" : ""}${gap}%p (${gap < 0 ? "낮음" : "높음"})` : "") +
+        (actual.income10a != null ? ` · 10a당 소득 약 ${Math.round(actual.income10a).toLocaleString()}원` : "")
+    );
+  }
+  lines.push(
+    "- 활용 지침: (1) 농가 단가가 전국 평균보다 낮으면 도매 의존이 수취가를 낮추는 신호로 보고 직거래·고부가 경로 확대를 우선 검토하라. (2) 고용노동비 비중이 높은 작목이면 노동집약 경로(온라인 소포장 등)의 실행 부담을 반드시 경고하라. (3) 소득자료는 전국 평균 1개뿐이므로 경로별 수익 수치를 지어내지 말고 '방향과 제약'으로만 활용하라."
+  );
+  if (actual && actual.incomeRate != null) {
+    lines.push(
+      "- 농가 실제 소득률이 전국 평균보다 낮으면 그 원인(낮은 수취가 또는 높은 경영비)을 '6. 추천 사유'에서 진단하고 경로 전략에 연결하라."
+    );
+  }
+  return lines.join("\n");
+}
+
+// 미입력 선택 항목 — AI가 추측·진단하지 않도록 지시하는 블록
+function buildSkipBlock(form) {
+  const missing = [];
+  if (!form.cost) missing.push("총 경영비 → 실제 소득률·수익성 진단");
+  if (!form.curPrice) missing.push("현재 판매단가 → 전국 평균 대비 단가갭 진단");
+  if (!form.shippingPeriod) missing.push("출하 가능 기간 → 출하 타이밍 진단");
+  if (!form.region) missing.push("지역 → 지역 연계 진단");
+  if (!form.defectRate) missing.push("비상품률 → 비상품 처리 경로 진단");
+  if (!missing.length) return "";
+  return (
+    "[미입력 항목 — 추측·진단 금지]\n" +
+    "다음 항목은 농가가 입력하지 않았다. 이에 대한 수치·판정·추측을 만들지 말고, 해당 분석을 출력에서 생략하라:\n" +
+    missing.map((m) => `- ${m}`).join("\n")
+  );
+}
+
+// 비상품률 트리거 — 2단계(10% / 20%)
+function buildDefectBlock(defectRateStr) {
+  const r = parseFloat(defectRateStr);
+  if (!(r > 0)) return "";
+  if (r >= 20)
+    return `[비상품 처리 — 적극 추천 트리거]\n비상품률이 ${r}%로 높다. 비상품(B급) 물량 처리를 위해 가공(즙·건조·잼 등), 못난이 B급 온라인 직거래, 로컬푸드 B급 진열, 산지유통인 일괄처리 등 비상품 전용 판로를 '5. 추천 포트폴리오'와 '7. 경로별 경쟁력 강화 과제'에 반드시 구체적으로 포함하라.`;
+  if (r >= 10)
+    return `[비상품 처리 — 보완 검토 트리거]\n비상품률이 ${r}%로 다소 있다. 비상품 처리 경로(가공·B급 직거래 등)를 보완적으로 검토해 '7. 경로별 경쟁력 강화 과제'에 언급하라.`;
+  return ""; // 10% 미만 — 정상 범위로 보고 별도 추천 없음
+}
+
+// 농가 입력값으로 실제 수익성 계산 (선택 입력 → 가능한 지표만, 각각 독립)
+function computeEcon(form, bench) {
+  const area = parseFloat(form.area);       // 평
+  const volume = parseFloat(form.volume);   // kg
+  const price = parseFloat(form.curPrice);  // 원/kg
+  const cost = parseFloat(form.cost);       // 원 (총 경영비)
+  const area10a = area > 0 ? area / 300 : null; // 10a = 300평
+  const totalRevenue = volume > 0 && price > 0 ? volume * price : null;
+  const income = totalRevenue != null && cost > 0 ? totalRevenue - cost : null;
+  const incomeRate = totalRevenue && income != null ? (income / totalRevenue) * 100 : null;
+  return {
+    area10a,
+    totalRevenue,
+    cost: cost > 0 ? cost : null,
+    income,
+    incomeRate,
+    myRevenue10a: totalRevenue != null && area10a ? totalRevenue / area10a : null,
+    myCost10a: cost > 0 && area10a ? cost / area10a : null,
+    myIncome10a: income != null && area10a ? income / area10a : null,
+    benchmark: bench,
+  };
+}
+
+// ─── 레이어1 AI 분석 프롬프트 생성 (v8 기반 + 소득자료 연계) ──────
+function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock) {
   const typeInfo = TYPE_INFO[farmerType.type];
   const topRoutes = topsisResult.slice(0, 3).map((r) => `${r.route}(${r.score}점)`).join(", ");
 
@@ -236,7 +388,7 @@ function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, cons
 - 연간 출하 물량: ${form.volume || "미입력"}
 - 출하 가능 기간: ${form.shippingPeriod || "미입력"}
 - 저장성: ${form.storage || "미입력"}
-- 상/중/하품 비율: ${form.gradeRatio || "미입력"}
+- 비상품률: ${form.defectRate ? form.defectRate + "%" : "미입력"}
 - 농가주 연령: ${form.age || "미입력"}
 - 가족노동력: ${form.labor || "미입력"}명
 - 판매·포장 가능 구성원: ${form.packMember || "미입력"}
@@ -268,6 +420,12 @@ TOPSIS 상위 3개 경로: ${topRoutes}
 ${consumerInsight
   ? `- ${consumerInsight}\n- 위 소비자 선호를 반드시 경로별 평가와 추천 포트폴리오에 반영하라. 특히 포장·규격·브랜드화·판매 채널 관련 시사점을 "경로별 경쟁력 강화 과제"에 구체적으로 연결하라.`
   : "- 이 품목은 소비월보 데이터가 없으므로 일반적인 소비 경향으로 판단한다."}
+
+${incomeBlock || ""}
+
+${buildSkipBlock(form)}
+
+${buildDefectBlock(form.defectRate)}
 
 [분석 출력 순서 — 반드시 이 순서로 한국어로 답하라]
 
@@ -315,7 +473,8 @@ ${consumerInsight
 - 비현실적 입력이면 먼저 경고
 - 품종과 저장성, 출하 가능 기간을 반드시 핵심 변수로 반영
 - 산지유통인 평가 시 단가 열세를 인정하되 비용·시간 절감 효과 함께 설명
-- 직거래(온라인)과 직거래(로컬푸드)는 항상 별도 경로로 평가`;
+- 직거래(온라인)과 직거래(로컬푸드)는 항상 별도 경로로 평가
+- 수익성·원가 기준선이 주어졌으면, 농가 단가의 전국 평균 대비 위치와 고용노동비 비중을 "5번 추천 포트폴리오"와 "6번 추천 사유"에 반드시 근거로 반영하라`;
 }
 
 // ─── 레이어2 AI 프롬프트 생성 (v8과 동일) ────────────────────
@@ -498,6 +657,17 @@ function ScoreBadge({ score }) {
   );
 }
 
+// Step0 필수 입력값 (판매경로 추천을 구동하는 값) — 특이사항은 빈칸 허용이라 제외
+const REQUIRED_STEP0 = [
+  ["crop", "품목"], ["variety", "품종"], ["area", "재배면적"], ["volume", "연간 출하물량"],
+  ["storage", "저장성"], ["onlineExp", "온라인 판매 경험"], ["packCapable", "포장 대응 가능 여부"],
+  ["timeAvail", "추가 시간 투입 가능 여부"], ["age", "농가주 연령"], ["labor", "가족노동력"],
+  ["claimExp", "고객응대·클레임 대응 경험"], ["localAccess", "로컬푸드 매장 접근성"],
+  ["directSaleExp", "직접 판매 경험"], ["wholesaleExp", "도매시장 출하 경험"],
+  ["localExp", "로컬푸드·직거래 경험"], ["negotiation", "협상·거래 응대 부담"],
+  ["packMember", "판매·포장 가능 구성원"], ["currentRoutes", "현재 판매경로"],
+];
+
 // ─── 진행 단계 바 (다크 테마) ────────────────────────────────
 const STEPS = ["기본 정보", "성향 진단", "포트폴리오 분석", "출하 결정"];
 
@@ -537,10 +707,11 @@ export default function PortfolioDiagnosis() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     crop: "", variety: "", area: "", volume: "", shippingPeriod: "",
-    storage: "", gradeRatio: "", age: "", labor: "", packMember: "",
+    storage: "", defectRate: "", age: "", labor: "", packMember: "",
     directSaleExp: "", wholesaleExp: "", onlineExp: "", localExp: "",
     claimExp: "", timeAvail: "", negotiation: "", currentRoutes: "",
-    region: "", special: "", localAccess: "", packCapable: "",
+    region: "", special: "", localAccess: "", packCapable: "", curPrice: "",
+    cost: "",
   });
   const [behaviorAnswers, setBehaviorAnswers] = useState({});
   const [farmerType, setFarmerType] = useState(null);
@@ -559,14 +730,22 @@ export default function PortfolioDiagnosis() {
   const output2Ref = useRef(null);
 
   const [datasets, setDatasets] = useState([]);
+  const [incomeData, setIncomeData] = useState([]);
+  const [incomeEvidence, setIncomeEvidence] = useState(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceAutoFilled, setPriceAutoFilled] = useState(false);
+
+  // 경영 진단 (Step 0) — 실제 수익성 계산 + 연계 인사이트
+  const [econResult, setEconResult] = useState(null);
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   // 사례 선택용 데이터 로드
   useEffect(() => {
     let alive = true;
     loadRdaCases().then(({ items }) => { if (alive) setCases(items); }).catch(() => {});
     loadPublicDatasets().then(({ items }) => { if (alive) setDatasets(items); }).catch(() => {});
+    loadIncomeData().then(({ items }) => { if (alive) setIncomeData(items); }).catch(() => {});
     return () => { alive = false; };
   }, []);
 
@@ -672,6 +851,118 @@ export default function PortfolioDiagnosis() {
     if (output2Ref.current) output2Ref.current.scrollTop = output2Ref.current.scrollHeight;
   }, [layer2Output]);
 
+  // ── 경영 진단 (Step 0): 실제 수익성 + 연계 인사이트 ──
+  function runEconDiagnosis() {
+    if (!form.crop) { alert("작목(품목)을 먼저 선택/입력해 주세요."); return; }
+    const bench = findIncome(form.crop, incomeData);
+    setEconResult(computeEcon(form, bench));
+    fetchInsights(form.crop, parseFloat(form.curPrice));
+  }
+
+  // 연계 인사이트: KAMIS 도매시세 / 수급단계 / 소비 트렌드 / 출하 가이드
+  async function fetchInsights(cropName, myPriceWon) {
+    const crop = findCrop(cropName);
+    setInsightsLoading(true);
+    setInsights({ crop });
+
+    const next = { crop, kamis: null, trend: null, guide: null };
+
+    if (crop?.guideId) {
+      next.guide = (datasets || []).find((d) => d.id === crop.guideId) || null;
+    }
+
+    // KAMIS 도매시세 (월별)
+    const kamisP = (async () => {
+      if (!crop?.kamis) return;
+      try {
+        const nowY = new Date().getFullYear();
+        const params = new URLSearchParams({
+          startDate: `${nowY - 1}0101`, endDate: `${nowY}1231`,
+          itemCode: crop.kamis.itemCode, kindCode: crop.kamis.kindCode, period: "monthly",
+        });
+        const res = await fetch(`/api/kamis/price?${params}`);
+        const json = await res.json();
+        const list = Array.isArray(json.price) ? json.price : [];
+        const entry = list.find((p) => p.productclscode === "02" && Array.isArray(p.item) && p.item.length)
+          || list.find((p) => Array.isArray(p.item) && p.item.length);
+        if (!entry) return;
+        const MK = ["m1","m2","m3","m4","m5","m6","m7","m8","m9","m10","m11","m12"];
+        let found = null;
+        for (const yrow of entry.item) {
+          for (let mi = 11; mi >= 0; mi--) {
+            const v = yrow[MK[mi]];
+            if (v && v !== "-") { found = { year: yrow.yyyy, month: mi + 1, val: v }; break; }
+          }
+          if (found) break;
+        }
+        if (!found) return;
+        const raw = parseFloat(String(found.val).replace(/,/g, ""));
+        const capKg = parseUnitKg(entry.caption);
+        const kg = capKg || crop.kamis.unitKg || null;
+        const estUnit = !capKg && !!crop.kamis.unitKg;
+        const perKg = kg ? raw / kg : null;
+        next.kamis = {
+          caption: entry.caption, refYM: `${found.year}.${found.month}`,
+          clsName: entry.productclscode === "02" ? "도매" : "소매",
+          raw, kg, perKg, estUnit,
+          diffPct: perKg && myPriceWon ? ((myPriceWon - perKg) / perKg) * 100 : null,
+        };
+
+        if (perKg != null) {
+          try {
+            const yp = new URLSearchParams({
+              startDate: `${nowY - 4}0101`, endDate: `${nowY}1231`,
+              itemCode: crop.kamis.itemCode, kindCode: crop.kamis.kindCode, period: "yearly",
+            });
+            const yres = await fetch(`/api/kamis/price?${yp}`);
+            const yjson = await yres.json();
+            const ylist = Array.isArray(yjson.price) ? yjson.price : [];
+            const yentry = ylist.find((p) => p.productclscode === "02" && Array.isArray(p.item) && p.item.length)
+              || ylist.find((p) => Array.isArray(p.item) && p.item.length);
+            const normalRow = yentry?.item?.find((r) => r.div === "평년");
+            const ykg = parseUnitKg(yentry?.caption) || crop.kamis.unitKg || kg;
+            if (normalRow && ykg) {
+              const normalPerKg = parseFloat(String(normalRow.avg_data).replace(/,/g, "")) / ykg;
+              if (normalPerKg > 0) {
+                const devPct = ((perKg - normalPerKg) / normalPerKg) * 100;
+                const itemStage = classifySupplyStageByItem(crop.name, devPct, found.month);
+                next.supply = {
+                  normalPerKg, curPerKg: perKg, devPct,
+                  stage: itemStage || classifySupplyStage(devPct),
+                  itemSpecific: !!itemStage,
+                  guide: (datasets || []).find((d) => d.id === SUPPLY_GUIDE_ID) || null,
+                };
+              }
+            }
+          } catch { /* 무시 */ }
+        }
+      } catch { /* 무시 */ }
+    })();
+
+    // 소비 트렌드
+    const trendP = (async () => {
+      if (!crop?.trendItem) return;
+      try {
+        const res = await fetch(`/api/consume/trend?item=${encodeURIComponent(crop.trendItem)}`);
+        const json = await res.json();
+        const rows = (json.rows || [])
+          .filter((r) => r.monAvgAmt > 0)
+          .sort((a, b) => (a.year + a.month.padStart(2, "0")).localeCompare(b.year + b.month.padStart(2, "0")));
+        if (rows.length < 2) { if (rows.length) next.trend = { latest: rows[rows.length - 1], rows }; return; }
+        const latest = rows[rows.length - 1];
+        const prev = rows[rows.length - 2];
+        next.trend = {
+          latest, prev, rows,
+          dirPct: prev.monAvgAmt ? ((latest.monAvgAmt - prev.monAvgAmt) / prev.monAvgAmt) * 100 : 0,
+        };
+      } catch { /* 무시 */ }
+    })();
+
+    await Promise.all([kamisP, trendP]);
+    setInsights(next);
+    setInsightsLoading(false);
+  }
+
   async function runLayer1() {
     const ft = classifyFarmerType(behaviorAnswers);
     const c5 = calcC5Adjustments(form);
@@ -696,11 +987,18 @@ export default function PortfolioDiagnosis() {
       : null;
     const consumerInsight = consumeDataset?.consumerInsight || null;
 
+    // 소득자료(AMIS) 수익성·원가 근거 연계 + 농가 실제 소득률(입력 시)
+    const bench = findIncome(form.crop, incomeData);
+    const evidence = deriveIncomeEvidence(bench, form.curPrice);
+    setIncomeEvidence(evidence);
+    const econ = computeEcon(form, bench);
+    const incomeBlock = buildIncomeBlock(evidence, form.crop, econ);
+
     setLayer1Loading(true);
     setLayer1Output("");
     setStep(2);
     try {
-      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight);
+      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight, incomeBlock);
       await callClaude(prompt, (txt) => setLayer1Output(txt));
     } catch (e) {
       setLayer1Output("⚠️ 분석 중 오류가 발생했습니다: " + e.message);
@@ -753,6 +1051,13 @@ export default function PortfolioDiagnosis() {
 
   const nonExampleCases = (cases || []).filter((c) => !c._example);
 
+  // 작목 드롭다운: 레지스트리 작목 + income-data 작목 합집합
+  const cropOptions = (() => {
+    const names = new Set(CROP_REGISTRY.map((c) => c.name));
+    (incomeData || []).forEach((c) => { if (c.name && !c.name.startsWith("예시")) names.add(c.name); });
+    return [...names];
+  })();
+
   return (
     <div>
       <h2 style={{ color: theme.text, fontSize: 18, margin: 0 }}>판매경로 진단</h2>
@@ -788,55 +1093,75 @@ export default function PortfolioDiagnosis() {
           <div style={cardStyle}>
             <h3 style={{ fontSize: 16, color: theme.text, marginTop: 0, marginBottom: 20 }}>📋 기본 생산·출하 조건</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
-              {fieldGroup("품목 *", "crop")}
+              {fieldGroup("품목 *", "crop", "text", cropOptions)}
               {fieldGroup("품종 *", "variety")}
-              {fieldGroup("재배면적 (㎡ 또는 평)", "area")}
-              {fieldGroup("연간 출하 물량 (톤 또는 kg)", "volume")}
-              {fieldGroup("출하 가능 기간 (예: 11월~5월)", "shippingPeriod")}
-              {fieldGroup("저장성", "storage", "text", ["낮음 (2~3일)", "보통 (1~2주)", "높음 (1개월 이상)"])}
-              {fieldGroup("상/중/하품 비율 (예: 상60 중30 하10)", "gradeRatio")}
-              {fieldGroup("지역", "region")}
+              {fieldGroup("재배면적 (평) *", "area", "number")}
+              {fieldGroup("연간 출하 물량 (kg) *", "volume", "number")}
+              {fieldGroup("출하 가능 기간 (예: 11월~5월) (선택)", "shippingPeriod")}
+              {fieldGroup("저장성 *", "storage", "text", ["낮음 (2~3일)", "보통 (1~2주)", "높음 (1개월 이상)"])}
+              {fieldGroup("비상품률 (%) (선택)", "defectRate", "number")}
+              {fieldGroup("지역 (선택)", "region")}
+            </div>
+            <div style={{ fontSize: 11.5, color: theme.textFaint, marginTop: 4 }}>
+              ※ 비상품률 = 전체 생산량 중 정상 출하가 어려운(등급 미달) 물량 비율. 입력하면 비상품 처리 판로까지 진단합니다. 모르면 비워두세요.
             </div>
           </div>
 
           <div style={cardStyle}>
             <h3 style={{ fontSize: 16, color: theme.text, marginTop: 0, marginBottom: 20 }}>👥 노동력 조건</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
-              {fieldGroup("농가주 연령", "age", "number")}
-              {fieldGroup("가족노동력 수 (명)", "labor", "number")}
-              {fieldGroup("판매·포장 가능 구성원", "packMember", "text", ["있음", "없음"])}
+              {fieldGroup("농가주 연령 *", "age", "number")}
+              {fieldGroup("가족노동력 수 (명) *", "labor", "number")}
+              {fieldGroup("판매·포장 가능 구성원 *", "packMember", "text", ["있음", "없음"])}
             </div>
           </div>
 
           <div style={cardStyle}>
             <h3 style={{ fontSize: 16, color: theme.text, marginTop: 0, marginBottom: 20 }}>💼 판매 운영 역량</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
-              {fieldGroup("직접 판매 경험", "directSaleExp", "text", ["없음", "단기", "지속적"])}
-              {fieldGroup("도매시장 출하 경험", "wholesaleExp", "text", ["없음", "있음"])}
-              {fieldGroup("온라인 판매 경험", "onlineExp", "text", ["없음", "일부 있음", "있음"])}
-              {fieldGroup("로컬푸드·직거래 경험", "localExp", "text", ["없음", "일부 있음", "있음"])}
-              {fieldGroup("고객응대·클레임 대응 경험", "claimExp", "text", ["없음", "있음"])}
-              {fieldGroup("추가 시간 투입 가능 여부", "timeAvail", "text", ["어려움", "일부 가능", "충분히 가능"])}
-              {fieldGroup("협상·거래 응대 부담", "negotiation", "text", ["부담됨", "보통", "괜찮음"])}
-              {fieldGroup("로컬푸드 매장 접근성", "localAccess", "text", ["낮음", "보통", "좋음"])}
-              {fieldGroup("포장 대응 가능 여부", "packCapable", "text", ["어려움", "가능"])}
+              {fieldGroup("직접 판매 경험 *", "directSaleExp", "text", ["없음", "단기", "지속적"])}
+              {fieldGroup("도매시장 출하 경험 *", "wholesaleExp", "text", ["없음", "있음"])}
+              {fieldGroup("온라인 판매 경험 *", "onlineExp", "text", ["없음", "일부 있음", "있음"])}
+              {fieldGroup("로컬푸드·직거래 경험 *", "localExp", "text", ["없음", "일부 있음", "있음"])}
+              {fieldGroup("고객응대·클레임 대응 경험 *", "claimExp", "text", ["없음", "있음"])}
+              {fieldGroup("추가 시간 투입 가능 여부 *", "timeAvail", "text", ["어려움", "일부 가능", "충분히 가능"])}
+              {fieldGroup("협상·거래 응대 부담 *", "negotiation", "text", ["부담됨", "보통", "괜찮음"])}
+              {fieldGroup("로컬푸드 매장 접근성 *", "localAccess", "text", ["낮음", "보통", "좋음"])}
+              {fieldGroup("포장 대응 가능 여부 *", "packCapable", "text", ["어려움", "가능"])}
             </div>
           </div>
 
           <div style={cardStyle}>
             <h3 style={{ fontSize: 16, color: theme.text, marginTop: 0, marginBottom: 20 }}>📌 참고 정보</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
-              {fieldGroup("현재 판매경로 비중 (예: 도매80% 로컬20%)", "currentRoutes")}
+              {fieldGroup("현재 판매경로 비중 (예: 도매80% 로컬20%) *", "currentRoutes")}
+              {fieldGroup("현재 평균 판매단가 (원/kg) (선택)", "curPrice", "number")}
+              {fieldGroup("총 경영비 (원, 전체 면적 기준) (선택)", "cost", "number")}
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>특이사항</label>
-                <input style={inputStyle} value={form.special} onChange={(e) => updateForm("special", e.target.value)} placeholder="특이사항 자유 입력" />
+                <input style={inputStyle} value={form.special} onChange={(e) => updateForm("special", e.target.value)} placeholder="없으면 비워두세요" />
               </div>
             </div>
           </div>
 
+          {/* 경영 진단 (선택 입력 기반) */}
+          <div style={cardStyle}>
+            <h3 style={{ fontSize: 16, color: theme.text, marginTop: 0, marginBottom: 8 }}>📈 경영 진단 (선택)</h3>
+            <p style={{ fontSize: 12.5, color: theme.textMuted, marginTop: 0, marginBottom: 14 }}>
+              재배면적·물량·단가·경영비를 입력하면 전국 평균 대비 수익성과 실시간 도매시세·수급단계·소비추세를 함께 진단합니다.
+              (입력한 값으로 계산 가능한 항목만 표시됩니다)
+            </p>
+            <button style={btnSecondary} onClick={runEconDiagnosis}>경영 진단 실행</button>
+            {econResult && <EconResult econ={econResult} crop={form.crop} />}
+            {(insights || insightsLoading) && (
+              <EconInsights insights={insights} loading={insightsLoading} myPrice={parseFloat(form.curPrice)} />
+            )}
+          </div>
+
           <div style={{ textAlign: "center" }}>
             <button style={btnPrimary} onClick={() => {
-              if (!form.crop || !form.variety) { alert("품목과 품종은 필수입니다."); return; }
+              const miss = REQUIRED_STEP0.find(([k]) => !String(form[k] ?? "").trim());
+              if (miss) { alert(`필수 입력값이 비어 있습니다: ${miss[1]}`); return; }
               setStep(1);
             }}>
               다음: 성향 진단 →
@@ -937,6 +1262,55 @@ export default function PortfolioDiagnosis() {
               </div>
             </div>
           )}
+
+          <div style={cardStyle}>
+            <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 4 }}>📊 수익성·원가 근거</h3>
+            <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 14 }}>
+              AMIS 농축산물 소득자료 · 전국 평균 · 10a(300평) 기준
+            </div>
+            {incomeEvidence ? (
+              <>
+                <div style={{ fontSize: 13, color: theme.text, marginBottom: 12 }}>
+                  대상 작목 <b style={{ color: theme.accent }}>{incomeEvidence.name}</b>
+                  {form.crop && form.crop !== incomeEvidence.name && (
+                    <span style={{ color: theme.textFaint }}> (입력: {form.crop})</span>
+                  )}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  {[
+                    ["전국 평균 단가", incomeEvidence.avgPrice ? `${incomeEvidence.avgPrice.toLocaleString()}원/kg` : "—"],
+                    ["전국 평균 소득률", incomeEvidence.incomeRate != null ? `${incomeEvidence.incomeRate}%` : "—"],
+                    ["고용노동비 비중", incomeEvidence.laborShare != null ? `${incomeEvidence.laborShare}%` : "—"],
+                  ].map(([l, v]) => (
+                    <div key={l} style={{ background: theme.panelAlt, borderRadius: 8, padding: "10px 12px", border: `1px solid ${theme.panelBorder}` }}>
+                      <div style={{ fontSize: 11, color: theme.textFaint, marginBottom: 4 }}>{l}</div>
+                      <div style={{ fontSize: 15, color: theme.text, fontWeight: 700 }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {incomeEvidence.priceGapPct != null && (
+                  <div style={{ fontSize: 12.5, color: theme.textMuted, marginTop: 12 }}>
+                    내 단가 {incomeEvidence.curPrice.toLocaleString()}원/kg는 전국 평균 대비{" "}
+                    <b style={{ color: incomeEvidence.priceGapPct < 0 ? theme.danger : theme.accent }}>
+                      {incomeEvidence.priceGapPct >= 0 ? "+" : ""}{incomeEvidence.priceGapPct}%
+                    </b>
+                    {incomeEvidence.priceGapPct < -5 && (
+                      <span style={{ color: theme.warn }}> · 수취가가 평균보다 낮습니다 → 직거래·고부가 경로 확대를 검토하세요.</span>
+                    )}
+                  </div>
+                )}
+                {incomeEvidence.laborShare != null && incomeEvidence.laborShare >= 25 && (
+                  <div style={{ fontSize: 12.5, color: theme.warn, marginTop: 8, background: `${theme.warn}14`, padding: "6px 10px", borderRadius: 8 }}>
+                    💡 고용노동비 비중이 높은 작목입니다. 온라인 소포장 등 노동집약 경로는 추가 노동부담을 함께 고려하세요.
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ fontSize: 12.5, color: theme.textFaint }}>
+                이 품목은 소득자료에 매칭되는 작목이 없어 일반 수익성 기준으로 진단했습니다. (품목명을 소득자료의 작목명과 맞추면 근거가 표시됩니다)
+              </div>
+            )}
+          </div>
 
           <div style={cardStyle}>
             <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 16 }}>
@@ -1054,6 +1428,175 @@ export default function PortfolioDiagnosis() {
         규칙기반 진단 시스템 · 실제 통계모형이 아님을 명확히 밝힙니다<br />
         KAMIS 연동 예정 (현재 수동 입력) · 프롬프트 v4 기준
       </div>
+    </div>
+  );
+}
+
+// ─── 경영 진단 결과 (10a 환산 비교) ────────────────────────────
+function EconResult({ econ, crop }) {
+  const b = econ.benchmark;
+  const rows = [];
+  if (econ.incomeRate != null) rows.push(["소득률", `${econ.incomeRate.toFixed(1)}%`, b ? `${b.income_rate_pct}%` : "비교 데이터 없음"]);
+  if (econ.myIncome10a != null) rows.push(["소득 (원/10a)", Math.round(econ.myIncome10a).toLocaleString(), b ? (b.income_per_10a ?? 0).toLocaleString() : "-"]);
+  if (econ.myRevenue10a != null) rows.push(["총수입 (원/10a)", Math.round(econ.myRevenue10a).toLocaleString(), b ? (b.total_revenue_per_10a ?? 0).toLocaleString() : "-"]);
+  if (econ.myCost10a != null) rows.push(["경영비 (원/10a)", Math.round(econ.myCost10a).toLocaleString(), b ? (b.management_cost_per_10a ?? 0).toLocaleString() : "-"]);
+
+  return (
+    <div style={{ ...card, marginTop: 16 }}>
+      <div style={{ color: theme.text, fontWeight: 700, marginBottom: 12 }}>경영 진단 결과 (10a 기준 환산)</div>
+      {rows.length === 0 ? (
+        <div style={{ color: theme.textFaint, fontSize: 12.5 }}>
+          단가·물량·경영비 중 입력된 값이 부족해 수익성 지표를 계산할 수 없습니다. (현재 단가만 입력해도 단가 비교가 가능합니다)
+        </div>
+      ) : (
+        rows.map(([l, m, bch]) => <Row key={l} label={l} mine={m} bench={bch} />)
+      )}
+      {!b && rows.length > 0 && (
+        <div style={{ color: theme.warn, fontSize: 12.5, marginTop: 8 }}>
+          소득자료에 "{crop}" 매칭 작목이 없어 전국 평균과 비교하지 못했습니다.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 연계 인사이트 (KAMIS 시세 / 수급단계 / 소비추세 / 출하가이드) ──
+function EconInsights({ insights, loading, myPrice }) {
+  if (!insights) return null;
+  const { crop, kamis, trend, guide, supply } = insights;
+
+  return (
+    <div style={{ ...card, marginTop: 16 }}>
+      <div style={{ color: theme.text, fontWeight: 700, marginBottom: 4 }}>연계 인사이트</div>
+      <div style={{ color: theme.textMuted, fontSize: 12, marginBottom: 14 }}>
+        작목 <b style={{ color: theme.accent }}>{crop?.name || "—"}</b> 기준 · 도매시세 / 수급단계 / 소비추세 / 출하가이드 연결
+      </div>
+
+      {loading && <div style={{ color: theme.textMuted, fontSize: 13 }}>실시간 데이터 불러오는 중...</div>}
+
+      <Block icon="📊" title="실시간 도매시세 (KAMIS)">
+        {!crop?.kamis ? (
+          <Muted>이 작목은 KAMIS 시세 매핑이 없습니다.</Muted>
+        ) : !kamis ? (
+          !loading && <Muted>최근 시세 데이터를 찾지 못했습니다.</Muted>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, color: theme.text }}>
+              <span style={badge(theme.accent)}>{kamis.clsName}</span>{" "}
+              <b>{kamis.raw.toLocaleString()}원</b>
+              <span style={{ color: theme.textMuted }}> ({kamis.refYM} 기준)</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: theme.textFaint, marginTop: 3 }}>
+              {kamis.caption}{kamis.estUnit && ` · 개당 약 ${kamis.kg}kg 기준 환산(추정)`}
+            </div>
+            {kamis.perKg != null && (
+              <div style={{ fontSize: 12.5, color: theme.textMuted, marginTop: 4 }}>
+                환산 도매가 ≈ <b style={{ color: theme.text }}>{Math.round(kamis.perKg).toLocaleString()}원/kg</b>
+                {kamis.diffPct != null && (
+                  <> · 내 판매단가({myPrice.toLocaleString()}원/kg)는{" "}
+                    <b style={{ color: kamis.diffPct < 0 ? theme.danger : theme.accent }}>
+                      {kamis.diffPct < 0 ? `${Math.abs(kamis.diffPct).toFixed(0)}% 낮음` : `${kamis.diffPct.toFixed(0)}% 높음`}
+                    </b>
+                  </>
+                )}
+              </div>
+            )}
+            {kamis.diffPct != null && kamis.diffPct < -10 && (
+              <Advice>도매시세 대비 단가가 낮습니다. 출하 시기 조정·등급 상향·직거래/온라인 판로를 검토해보세요.</Advice>
+            )}
+          </>
+        )}
+      </Block>
+
+      <Block icon="📉" title="수급 단계 (수급관리 가이드라인 연계)">
+        {!crop?.kamis ? (
+          <Muted>이 작목은 KAMIS 시세 매핑이 없어 수급 단계를 판정할 수 없습니다.</Muted>
+        ) : !supply ? (
+          !loading && <Muted>평년 시세 데이터를 찾지 못해 수급 단계를 판정할 수 없습니다.</Muted>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, color: theme.text }}>
+              현재 도매가 <b>{Math.round(supply.curPerKg).toLocaleString()}원/kg</b>
+              <span style={{ color: theme.textMuted }}> · 평년 {Math.round(supply.normalPerKg).toLocaleString()}원/kg 대비 </span>
+              <b style={{ color: supply.stage.color }}>
+                {supply.devPct >= 0 ? "+" : ""}{supply.devPct.toFixed(0)}%
+              </b>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <span style={{ ...badge(supply.stage.color), fontSize: 12 }}>{supply.stage.label}</span>
+              <span style={{ fontSize: 11.5, color: theme.textFaint, marginLeft: 6 }}>({supply.stage.band})</span>
+              {supply.itemSpecific && supply.stage.season && (
+                <span style={{ fontSize: 11.5, color: theme.textMuted, marginLeft: 6 }}>· {supply.stage.season} 기준</span>
+              )}
+            </div>
+            {supply.guide && (
+              <div style={{ fontSize: 12, color: theme.accent, marginTop: 8 }}>
+                📄 {supply.guide.title} → 공공데이터 탭에서 대응 기준 확인
+              </div>
+            )}
+          </>
+        )}
+      </Block>
+
+      <Block icon="🛒" title="소비 트렌드 (농식품)">
+        {!crop?.trendItem ? (
+          <Muted>이 작목은 소비 트렌드 매핑이 없습니다.</Muted>
+        ) : !trend ? (
+          !loading && <Muted>소비 트렌드 데이터를 찾지 못했습니다.</Muted>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, color: theme.text }}>
+              {trend.latest.year}년 {trend.latest.month}월 월평균 구매가{" "}
+              <b>{trend.latest.monAvgAmt.toLocaleString()}원</b>
+              {trend.dirPct != null && (
+                <span style={{ color: trend.dirPct >= 0 ? theme.accent : theme.danger, marginLeft: 6 }}>
+                  {trend.dirPct >= 0 ? "▲" : "▼"} {Math.abs(trend.dirPct).toFixed(1)}%
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 4 }}>
+              분류 {trend.latest.category} · 직전 대비 수요 단가 추세
+            </div>
+          </>
+        )}
+      </Block>
+
+      <Block icon="📄" title="최적 출하 가이드" last>
+        {guide ? (
+          <>
+            <div style={{ fontSize: 13, color: theme.text, fontWeight: 600 }}>{guide.title}</div>
+            <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 4 }}>{guide.agency} · {guide.description?.slice(0, 80)}…</div>
+            <div style={{ fontSize: 12, color: theme.accent, marginTop: 6 }}>→ 공공데이터 탭에서 전체 가이드를 확인하세요.</div>
+          </>
+        ) : (
+          <Muted>이 작목에 매칭되는 출하 가이드가 아직 없습니다.</Muted>
+        )}
+      </Block>
+    </div>
+  );
+}
+
+function Block({ icon, title, last, children }) {
+  return (
+    <div style={{ padding: "10px 0", borderBottom: last ? "none" : `1px solid ${theme.divider}` }}>
+      <div style={{ fontSize: 12.5, color: theme.textMuted, marginBottom: 6 }}>{icon} {title}</div>
+      {children}
+    </div>
+  );
+}
+const Muted = ({ children }) => <div style={{ fontSize: 12.5, color: theme.textFaint }}>{children}</div>;
+const Advice = ({ children }) => (
+  <div style={{ fontSize: 12.5, color: theme.warn, marginTop: 8, background: `${theme.warn}14`, padding: "6px 10px", borderRadius: 8 }}>
+    💡 {children}
+  </div>
+);
+function Row({ label, mine, bench }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${theme.divider}`, fontSize: 13 }}>
+      <span style={{ color: theme.textMuted }}>{label}</span>
+      <span style={{ color: theme.text }}>
+        내 농가 {mine} <span style={{ color: theme.textFaint, margin: "0 6px" }}>vs</span> 전국평균 {bench}
+      </span>
     </div>
   );
 }

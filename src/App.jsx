@@ -1,25 +1,17 @@
 import React, { useState } from "react";
 import { theme } from "./theme";
-import PublicDataCatalog from "./components/PublicDataCatalog";
-import CropProfitability from "./components/CropProfitability";
-import FarmDiagnosis from "./components/FarmDiagnosis";
 import PortfolioDiagnosis from "./components/PortfolioDiagnosis";
-import Guide from "./components/Guide";
-import KamisPrice from "./components/KamisPrice";
-import ConsumeTrend from "./components/ConsumeTrend";
+import MarketInfo from "./components/MarketInfo";
+import PublicDataCatalog from "./components/PublicDataCatalog";
 
 const TABS = [
-  { key: "profit", label: "작목별 수익성 비교", Comp: CropProfitability },
-  { key: "diagnosis", label: "내 농가 경영 진단", Comp: FarmDiagnosis },
-  { key: "portfolio", label: "판매경로 진단", Comp: PortfolioDiagnosis },
-  { key: "kamis", label: "도매시장 가격", Comp: KamisPrice },
-  { key: "consume", label: "소비 트렌드", Comp: ConsumeTrend },
+  { key: "diagnosis", label: "농가 진단", Comp: PortfolioDiagnosis },
+  { key: "market", label: "시장 정보", Comp: MarketInfo },
   { key: "public", label: "공공데이터", Comp: PublicDataCatalog },
-  { key: "guide", label: "가이드", Comp: Guide },
 ];
 
 export default function App() {
-  const [tab, setTab] = useState("public");
+  const [tab, setTab] = useState("diagnosis");
   const active = TABS.find((t) => t.key === tab);
   const Active = active ? active.Comp : null;
 

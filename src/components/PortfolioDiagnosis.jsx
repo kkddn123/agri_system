@@ -5,9 +5,9 @@ import { CROP_REGISTRY, findCrop, parseUnitKg } from "../lib/cropRegistry";
 import { classifySupplyStageByItem } from "../lib/supplyThresholds";
 
 // 이 파일은 농가판매경로_AI시스템.jsx(v8)의 로직(행동기반 5문항 분류, TOPSIS 계산,
-// Layer1/Layer2 프롬프트)을 그대로 가져와 AGR 대시보드의 다크 테마 탭 안에 옮긴 것입니다.
-// 판단 로직(가중치·점수·분류 규칙·프롬프트 문구)은 변경하지 않았고, 시각 스타일과
-// "사례 선택" 연동만 추가했습니다.
+// Layer1/Layer2 프롬프트)을 가져와 AGR 대시보드의 다크 테마 탭 안에 옮긴 것입니다.
+// v8 대비 수정: BASE_SCORES의 C3(노동부담)를 실제 편익형으로 반전(v8은 원시 부담값을
+// 그대로 써서 "부담이 클수록 유리"하게 계산되는 결함이 있었음). 그 외 가중치·분류 규칙은 동일.
 
 // 농산물 수급관리 가이드라인(공공데이터 카탈로그) 연계 ID — 경영 진단 인사이트용
 const SUPPLY_GUIDE_ID = "MAFRA-SUPPLY-2025-01";
@@ -108,13 +108,15 @@ const TOPSIS_WEIGHTS = {
   E: [0.20, 0.20, 0.20, 0.20, 0.20],
 };
 
-// 기본 점수 행렬 (v8과 동일, C3는 역방향 처리된 값)
+// 기본 점수 행렬 — 모든 열이 편익형(높을수록 유리).
+// C3(노동부담)는 원시 부담값(도매 2, 온라인 7 등)을 10-x로 반전한 값이다:
+// 부담이 적은 경로일수록 높은 점수 (도매·산지유통인 8, 온라인 3).
 const BASE_SCORES = {
-  "도매시장":            [5, 9, 2, 6, 9],
-  "생산자단체(조직출하)": [6, 8, 3, 8, 8],
-  "직거래(온라인)":       [9, 4, 7, 5, 5],
+  "도매시장":            [5, 9, 8, 6, 9],
+  "생산자단체(조직출하)": [6, 8, 7, 8, 8],
+  "직거래(온라인)":       [9, 4, 3, 5, 5],
   "직거래(로컬푸드)":     [7, 5, 5, 6, 6],
-  "산지유통인":           [4, 8, 2, 6, 8],
+  "산지유통인":           [4, 8, 8, 6, 8],
 };
 
 // 유형별 특성 (v8과 동일, color는 유형 구분용 강조색으로 그대로 사용)
@@ -224,7 +226,8 @@ function calcC5Adjustments(form) {
   adj["직거래(로컬푸드)"] = Math.max(2, Math.min(9, local));
 
   let sji = 7;
-  if (form.storage === "낮음") sji += 1;
+  // 저장성 입력값은 "낮음 (2~3일)" 형식이므로 접두어로 판정
+  if (String(form.storage || "").startsWith("낮음")) sji += 1;
   if (form.timeAvail === "어려움") sji += 1;
   adj["산지유통인"] = Math.max(2, Math.min(9, sji));
 
@@ -474,7 +477,155 @@ ${buildDefectBlock(form.defectRate)}
 - 품종과 저장성, 출하 가능 기간을 반드시 핵심 변수로 반영
 - 산지유통인 평가 시 단가 열세를 인정하되 비용·시간 절감 효과 함께 설명
 - 직거래(온라인)과 직거래(로컬푸드)는 항상 별도 경로로 평가
-- 수익성·원가 기준선이 주어졌으면, 농가 단가의 전국 평균 대비 위치와 고용노동비 비중을 "5번 추천 포트폴리오"와 "6번 추천 사유"에 반드시 근거로 반영하라`;
+- 수익성·원가 기준선이 주어졌으면, 농가 단가의 전국 평균 대비 위치와 고용노동비 비중을 "5번 추천 포트폴리오"와 "6번 추천 사유"에 반드시 근거로 반영하라
+
+[출력 형식 — 반드시 지켜라]
+- 섹션 제목은 마크다운 '## 숫자. 제목' 형식으로만 작성한다.
+- 경로별 평가와 추천 포트폴리오는 반드시 마크다운 표(| 열 | 열 |)로 작성한다. 아스키 박스(┌─┐, ╔═╗)나 코드블록(\`\`\`) 표는 절대 쓰지 마라.
+- 각 항목 서술은 2~4줄로 간결하게. 장황한 배경 설명·중복 문장 금지.
+- 핵심 수치·판정은 **굵게** 강조한다.`;
+}
+
+// ─── [실험] 추론 우선 레이어1 프롬프트 ────────────────────────
+// buildLayer1Prompt와 같은 근거(AMIS·소비자·행동응답)를 주되,
+//  - 농가 유형(A~E)을 '결정된 답'으로 주지 않고 성향 신호만 참고로 넘긴다
+//  - TOPSIS 점수는 '규칙기반 표에서 나온 참고 사전값(따를 필요 없음)'으로만 제시하고
+//    LLM이 스스로 경로 적합도를 추론·순위 매기며, 표와 다르면 그 이유를 밝히게 한다.
+// 목적: "표가 결정 → LLM이 해설" 구조를 "LLM이 추론 → 표는 참고"로 뒤집었을 때
+//       결과가 얼마나/어떻게 달라지는지 규칙기반 결과와 나란히 비교하기 위함.
+function buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock) {
+  return `당신은 이 농가 한 곳의 조건·성향·자원을 '있는 그대로' 읽고, 5개 판매경로가 이 농가에 실제로 맞는지를 스스로 추론해 판단하는 농업유통 컨설턴트다.
+이것은 규칙기반 점수표가 아니라 당신의 추론으로 순위를 정하는 실험 버전이다. 아래 사전 점수는 참고일 뿐이며, 당신의 판단과 다르면 반드시 그 이유를 밝혀라.
+
+[판매경로 5개로 한정]
+도매시장 / 생산자단체(조직출하) / 직거래(온라인) / 직거래(로컬푸드) / 산지유통인
+
+[농가 입력 정보]
+- 품목: ${form.crop || "미입력"} / 품종: ${form.variety || "미입력"}
+- 재배면적: ${form.area || "미입력"} / 연간 출하 물량: ${form.volume || "미입력"}
+- 출하 가능 기간: ${form.shippingPeriod || "미입력"} / 저장성: ${form.storage || "미입력"}
+- 비상품률: ${form.defectRate ? form.defectRate + "%" : "미입력"}
+- 농가주 연령: ${form.age || "미입력"} / 가족노동력: ${form.labor || "미입력"}명 / 판매·포장 가능 구성원: ${form.packMember || "미입력"}
+- 직접 판매 경험: ${form.directSaleExp || "미입력"} / 도매시장 출하 경험: ${form.wholesaleExp || "미입력"}
+- 온라인 판매 경험: ${form.onlineExp || "미입력"} / 로컬푸드·직거래 경험: ${form.localExp || "미입력"}
+- 고객응대·클레임 대응 경험: ${form.claimExp || "미입력"} / 추가 시간 투입 가능: ${form.timeAvail || "미입력"}
+- 협상·거래 응대 부담: ${form.negotiation || "미입력"} / 현재 판매경로: ${form.currentRoutes || "미입력"}
+- 지역: ${form.region || "미입력"} / 특이사항: ${form.special || "없음"}
+
+[행동 기반 응답 — 원문 그대로 (당신이 직접 해석하라)]
+- Q1(가격대응): ${BEHAVIOR_QUESTIONS[0].options[behaviorAnswers.q1]?.label || "미응답"}
+- Q2(판로시도): ${BEHAVIOR_QUESTIONS[1].options[behaviorAnswers.q2]?.label || "미응답"}
+- Q3(불만사항): ${BEHAVIOR_QUESTIONS[2].options[behaviorAnswers.q3]?.label || "미응답"}
+- Q4(클레임경험): ${BEHAVIOR_QUESTIONS[3].options[behaviorAnswers.q4]?.label || "미응답"}
+- Q5(출하결정): ${BEHAVIOR_QUESTIONS[4].options[behaviorAnswers.q5]?.label || "미응답"}
+- 참고 성향 신호(강도, 결정값 아님): 수익지향 ${farmerType.profit} · 안정지향 ${farmerType.stable} · 도전성 ${farmerType.challenge} · 조직의존 ${farmerType.org}
+  → 위 신호는 5문항을 기계적으로 합산한 것일 뿐이다. 농가를 하나의 고정 유형으로 낙인찍지 말고, 응답 원문과 조건을 종합해 성향을 '스스로' 서술하라.
+
+[참고: 규칙기반 사전 점수 (TOPSIS 표 — 따를 필요 없음)]
+${topsisResult.map((r) => `- ${r.route}: ${r.score}점`).join("\n")}
+※ 이 점수는 고정 가중치·고정 점수행렬에서 나온 값이라 이 농가의 개별 사정을 반영하지 못한다. 당신의 추론 결과가 이와 다르면, 4번 항목에서 "표는 X를 상위로 봤지만 나는 Y를 우선한다 — 왜냐하면…" 식으로 근거를 대라.
+
+[소비자가 원하는 상품 (농식품 소비월보 기반)]
+${consumerInsight
+  ? `- ${consumerInsight}\n- 이 소비자 선호를 경로별 판단과 추천에 실제로 반영하라.`
+  : "- 이 품목은 소비월보 데이터가 없으므로 일반적인 소비 경향으로 판단한다."}
+
+${incomeBlock || ""}
+
+${buildSkipBlock(form)}
+
+${buildDefectBlock(form.defectRate)}
+
+[분석 출력 순서 — 반드시 이 순서로 한국어로 답하라]
+
+**1. 이 농가를 한 문단으로 읽기**
+- 이 농가가 어떤 상황·성향·제약을 가진 곳인지, 응답과 조건을 근거로 2~4줄 서술 (유형 라벨 붙이지 말 것)
+
+**2. 결정적 변수 3가지**
+- 이 농가의 경로 선택을 가장 크게 좌우하는 변수 3개와 그 이유
+
+**3. 정성지표 판정**
+- 판매운영 역량 / 온라인 직거래 역량 / 도전성향 / 안정성 선호 / 대면·협상 대응 성향 (각 낮음·보통·높음 + 근거 한 줄)
+
+**4. 5개 경로 추론 평가**
+각 경로마다: 판정(진입 가능/조건부 가능/비추천) | 당신이 매긴 점수(100점) | 근거(이 농가 변수로 서술)
+- 반드시 당신의 추론으로 점수를 매기고, 위 규칙기반 사전 점수와 어긋나는 경로가 있으면 그 차이와 이유를 명시하라.
+
+**5. 추천 포트폴리오**
+- 즉시 실행안: 최대 3개 경로, 합계 100%, 주력 40~60% / 보완 20~40% / 완충 10~30%
+- 온라인+로컬푸드 동시 포함 시 합산 노동부담 검토 반드시 포함
+- 이 포트폴리오 표 바로 아래 줄에, 기계 판독용으로 아래 한 줄을 정확히 출력한 뒤 6~8번을 이어서 작성하라:
+  PORTFOLIO_ROUTES: 주력=<경로>, 보완=<경로 또는 없음>, 완충=<경로 또는 없음>, 역량=<낮음|보통|높음>
+  · <경로>는 반드시 5개 중 정확히 하나로 표기: 도매시장 / 생산자단체(조직출하) / 직거래(온라인) / 직거래(로컬푸드) / 산지유통인
+  · 주력/보완/완충은 위 포트폴리오 표와 정확히 일치, 역량은 3번의 판매운영 역량을 따른다
+
+**6. 추천 사유**
+- 어떤 변수가 결정적이었는지, 왜 다른 경로는 주력이 아닌지
+
+**7. 경로별 경쟁력 강화 과제**
+생산·수확 / 선별·규격화 / 포장·소포장 / 판매·마케팅 / 조직화·계약 / 비상품 처리
+
+**8. 한줄 결론**
+이 농가의 최적 판매전략을 한 문장으로
+
+[중요 제한]
+- "상황에 따라 다르다"로 끝내지 마라
+- 근거 없는 수익 수치 절대 제시 금지
+- 비현실적 입력이면 먼저 경고
+- 품종·저장성·출하 가능 기간을 반드시 핵심 변수로 반영
+- 직거래(온라인)과 직거래(로컬푸드)는 항상 별도 경로로 평가
+- 수익성·원가 기준선이 주어졌으면 농가 단가의 전국 평균 대비 위치와 고용노동비 비중을 5·6번에 반드시 근거로 반영
+
+[출력 형식]
+- 섹션 제목은 '## 숫자. 제목' 마크다운으로만.
+- 경로 평가·추천 포트폴리오는 마크다운 표(| 열 | 열 |)로. 아스키 박스·코드블록 표 금지.
+- 각 서술 2~4줄로 간결하게. 핵심 수치·판정은 **굵게**.`;
+}
+
+// ─── [실험] 추론 우선 출력에서 포트폴리오 경로 파싱 ───────────
+// 경로명을 5개 표준 경로 중 하나로 정규화 (부분·키워드 매칭 포함)
+function normalizeRoute(s) {
+  const t = String(s || "").trim();
+  if (!t || t === "없음") return t === "없음" ? "없음" : "";
+  const exact = ROUTES.find((r) => r === t);
+  if (exact) return exact;
+  const partial = ROUTES.find((r) => t.includes(r) || r.includes(t));
+  if (partial) return partial;
+  if (t.includes("온라인")) return "직거래(온라인)";
+  if (t.includes("로컬")) return "직거래(로컬푸드)";
+  if (t.includes("도매")) return "도매시장";
+  if (t.includes("조직") || t.includes("생산자단체") || t.includes("농협")) return "생산자단체(조직출하)";
+  if (t.includes("산지유통")) return "산지유통인";
+  return "";
+}
+
+// 추론 출력 마지막의 'PORTFOLIO_ROUTES: ...' 한 줄을 파싱 → 레이어2 기준선 객체
+function parseReasoningPortfolio(text) {
+  const m = String(text || "").match(/PORTFOLIO_ROUTES:\s*(.+)/);
+  if (!m) return null;
+  const line = m[1];
+  const grab = (key) => {
+    const r = line.match(new RegExp(key + "\\s*=\\s*([^,]+)"));
+    return r ? r[1].trim() : "";
+  };
+  const mainRoute = normalizeRoute(grab("주력"));
+  if (!mainRoute) return null; // 주력조차 못 읽으면 적용 불가
+  let capability = grab("역량");
+  if (!["낮음", "보통", "높음"].includes(capability)) capability = "보통";
+  return {
+    mainRoute,
+    subRoute: normalizeRoute(grab("보완")) || "없음",
+    bufferRoute: normalizeRoute(grab("완충")) || "없음",
+    capability,
+  };
+}
+
+// 화면 표시용: 기계 판독 라인은 사용자에게 숨긴다
+function stripPortfolioMarker(text) {
+  return String(text || "")
+    .replace(/^\s*PORTFOLIO_ROUTES:.*$/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
 // ─── 레이어2 AI 프롬프트 생성 (v8과 동일) ────────────────────
@@ -596,12 +747,14 @@ async function callClaude(prompt, onChunk) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let fullText = "";
+  let buffer = ""; // SSE 라인이 네트워크 청크 경계에서 잘리면 다음 청크로 이월
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    const chunk = decoder.decode(value);
-    const lines = chunk.split("\n");
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? ""; // 마지막 요소는 미완성 라인일 수 있음
     for (const line of lines) {
       if (line.startsWith("data: ")) {
         const data = line.slice(6);
@@ -620,36 +773,128 @@ async function callClaude(prompt, onChunk) {
 }
 
 // ─── 마크다운 렌더러 (다크 테마) ───────────────────────────────
-function SimpleMarkdown({ text }) {
-  if (!text) return null;
-  const lines = text.split("\n");
+// 인라인 서식: **굵게**, `코드`
+function renderInline(str) {
+  return String(str).split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((tk, i) => {
+    if (/^\*\*[^*]+\*\*$/.test(tk))
+      return <strong key={i} style={{ color: theme.text, fontWeight: 700 }}>{tk.slice(2, -2)}</strong>;
+    if (/^`[^`]+`$/.test(tk))
+      return <code key={i} style={{ fontFamily: "ui-monospace, monospace", background: theme.panelAlt, padding: "1px 5px", borderRadius: 4, fontSize: "0.9em", color: theme.text }}>{tk.slice(1, -1)}</code>;
+    return tk;
+  });
+}
+const splitCells = (l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+
+function MdTable({ header, rows }) {
   return (
-    <div style={{ lineHeight: 1.8 }}>
-      {lines.map((line, i) => {
-        if (line.startsWith("**") && line.endsWith("**") && line.length > 4) {
-          return (
-            <div key={i} style={{ fontWeight: 700, color: theme.text, marginTop: 16, marginBottom: 4, fontSize: 15, borderLeft: `3px solid ${theme.accent}`, paddingLeft: 10 }}>
-              {line.replace(/\*\*/g, "")}
-            </div>
-          );
-        }
-        if (line.startsWith("- ")) {
-          return <div key={i} style={{ paddingLeft: 16, color: theme.textMuted, fontSize: 14, marginBottom: 2 }}>• {line.slice(2)}</div>;
-        }
-        if (line.match(/^\d+\./)) {
-          return <div key={i} style={{ paddingLeft: 16, color: theme.textMuted, fontSize: 14, marginBottom: 2 }}>{line}</div>;
-        }
-        if (line.trim() === "") return <div key={i} style={{ height: 8 }} />;
-        return <div key={i} style={{ color: theme.textMuted, fontSize: 14 }}>{line}</div>;
-      })}
+    <div style={{ overflowX: "auto", margin: "10px 0 16px" }}>
+      <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+        <thead>
+          <tr>{header.map((c, j) => (
+            <th key={j} style={{ textAlign: "left", padding: "9px 12px", background: theme.panelAlt, color: theme.text, fontWeight: 700, borderBottom: `2px solid ${theme.panelBorder}`, whiteSpace: "nowrap" }}>{renderInline(c)}</th>
+          ))}</tr>
+        </thead>
+        <tbody>{rows.map((r, ri) => (
+          <tr key={ri} style={{ background: ri % 2 ? "transparent" : `${theme.panelAlt}66` }}>
+            {r.map((c, j) => (
+              <td key={j} style={{ padding: "8px 12px", color: j === 0 ? theme.text : theme.textMuted, fontWeight: j === 0 ? 600 : 400, borderBottom: `1px solid ${theme.divider}`, verticalAlign: "top" }}>{renderInline(c)}</td>
+            ))}
+          </tr>
+        ))}</tbody>
+      </table>
     </div>
   );
 }
 
+const H_STYLE = {
+  1: { fontSize: 17, fontWeight: 800, color: theme.text, margin: "20px 0 10px" },
+  2: { fontSize: 15.5, fontWeight: 700, color: theme.text, borderLeft: `3px solid ${theme.accent}`, paddingLeft: 10, margin: "20px 0 8px" },
+  3: { fontSize: 14, fontWeight: 700, color: theme.text, margin: "14px 0 4px" },
+  4: { fontSize: 13, fontWeight: 600, color: theme.textMuted, margin: "10px 0 2px" },
+};
+
+function SimpleMarkdown({ text }) {
+  if (!text) return null;
+  const lines = text.replace(/\r/g, "").split("\n");
+  const out = [];
+  const isRow = (l) => /^\s*\|.*\|\s*$/.test(l || "");
+  const isSep = (l) => /^\s*\|?[\s:|-]+\|?\s*$/.test(l || "") && (l || "").includes("-");
+  let i = 0, k = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // 코드블록 ```
+    if (/^\s*```/.test(line)) {
+      const buf = []; i++;
+      while (i < lines.length && !/^\s*```/.test(lines[i])) { buf.push(lines[i]); i++; }
+      i++;
+      out.push(<pre key={k++} style={{ background: theme.panelAlt, border: `1px solid ${theme.panelBorder}`, borderRadius: 8, padding: "10px 12px", overflowX: "auto", fontSize: 12.5, lineHeight: 1.5, color: theme.textMuted, margin: "8px 0" }}>{buf.join("\n")}</pre>);
+      continue;
+    }
+    // 표
+    if (isRow(line) && isSep(lines[i + 1])) {
+      const header = splitCells(line); i += 2;
+      const rows = [];
+      while (i < lines.length && isRow(lines[i])) { rows.push(splitCells(lines[i])); i++; }
+      out.push(<MdTable key={k++} header={header} rows={rows} />);
+      continue;
+    }
+    // 제목 #~####
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { out.push(<div key={k++} style={H_STYLE[h[1].length]}>{renderInline(h[2].replace(/\s*#+\s*$/, ""))}</div>); i++; continue; }
+    // 구분선
+    if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) { out.push(<hr key={k++} style={{ border: "none", borderTop: `1px solid ${theme.divider}`, margin: "14px 0" }} />); i++; continue; }
+    // 한 줄 전체 굵게 → 소제목 처리
+    const wb = line.match(/^\s*\*\*(.+?)\*\*\s*:?\s*$/);
+    if (wb) { out.push(<div key={k++} style={H_STYLE[3]}>{wb[1]}</div>); i++; continue; }
+    // 인용 >
+    if (/^\s*>\s?/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^\s*>\s?/, "")); i++; }
+      out.push(
+        <div key={k++} style={{ borderLeft: `3px solid ${theme.info}`, background: `${theme.info}12`, padding: "8px 12px", borderRadius: "0 8px 8px 0", margin: "10px 0", fontSize: 13, color: theme.textMuted, lineHeight: 1.7 }}>
+          {buf.map((b, bi) => <div key={bi}>{renderInline(b)}</div>)}
+        </div>
+      );
+      continue;
+    }
+    // 글머리표 - * •
+    const b = line.match(/^(\s*)[-*•]\s+(.*)$/);
+    if (b) {
+      const indent = Math.floor(b[1].length / 2) * 14;
+      out.push(
+        <div key={k++} style={{ display: "flex", gap: 8, paddingLeft: 4 + indent, margin: "3px 0", fontSize: 14, color: theme.textMuted, lineHeight: 1.7 }}>
+          <span style={{ color: theme.accent, flexShrink: 0 }}>•</span>
+          <span>{renderInline(b[2])}</span>
+        </div>
+      );
+      i++; continue;
+    }
+    // 번호 목록
+    const n = line.match(/^\s*(\d+)\.\s+(.*)$/);
+    if (n) {
+      out.push(
+        <div key={k++} style={{ display: "flex", gap: 8, paddingLeft: 4, margin: "3px 0", fontSize: 14, color: theme.textMuted, lineHeight: 1.7 }}>
+          <span style={{ color: theme.accent, fontWeight: 700, flexShrink: 0 }}>{n[1]}.</span>
+          <span>{renderInline(n[2])}</span>
+        </div>
+      );
+      i++; continue;
+    }
+    // 빈 줄
+    if (line.trim() === "") { out.push(<div key={k++} style={{ height: 6 }} />); i++; continue; }
+    // 일반 문단
+    out.push(<div key={k++} style={{ color: theme.textMuted, fontSize: 14, lineHeight: 1.75, margin: "2px 0" }}>{renderInline(line)}</div>);
+    i++;
+  }
+  return <div>{out}</div>;
+}
+
 // ─── 점수 배지 (다크 테마) ──────────────────────────────────────
 function ScoreBadge({ score }) {
-  const color = score >= 80 ? theme.accent : score >= 60 ? theme.info : score >= 40 ? theme.warn : theme.danger;
-  const text = score >= 80 ? "주력 후보" : score >= 60 ? "보완 후보" : score >= 40 ? "제한적" : "비추천";
+  // TOPSIS 상대근접도 특성상 실측 최고점이 70점 안팎이라 임계값을 65/50/35로 조정
+  const color = score >= 65 ? theme.accent : score >= 50 ? theme.info : score >= 35 ? theme.warn : theme.danger;
+  const text = score >= 65 ? "주력 후보" : score >= 50 ? "보완 후보" : score >= 35 ? "제한적" : "비추천";
   return (
     <span style={{ background: color, color: "#06210f", borderRadius: 20, padding: "2px 10px", fontSize: 13, fontWeight: 700 }}>
       {score}점 · {text}
@@ -718,6 +963,11 @@ export default function PortfolioDiagnosis() {
   const [topsisResult, setTopsisResult] = useState(null);
   const [layer1Output, setLayer1Output] = useState("");
   const [layer1Loading, setLayer1Loading] = useState(false);
+  // [실험] 추론 우선 방식 비교 출력
+  const [compareOutput, setCompareOutput] = useState("");
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [reasoningPortfolio, setReasoningPortfolio] = useState(null); // 추론 출력에서 파싱한 주력/보완/완충
+  const [layer2Source, setLayer2Source] = useState("규칙기반"); // 레이어2 기준선 출처: "규칙기반" | "추론"
   const [layer2Form, setLayer2Form] = useState({
     thisVolume: "", canStore: "", storeDays: "", gradeRatio: "",
     quality: "", urgent: "", special: "", onlineOrder: "", localAvail: "",
@@ -996,6 +1246,9 @@ export default function PortfolioDiagnosis() {
 
     setLayer1Loading(true);
     setLayer1Output("");
+    setCompareOutput("");
+    setReasoningPortfolio(null);
+    setLayer2Source("규칙기반");
     setStep(2);
     try {
       const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight, incomeBlock);
@@ -1007,12 +1260,65 @@ export default function PortfolioDiagnosis() {
     }
   }
 
+  // [실험] 추론 우선 방식으로 같은 입력을 다시 진단 (규칙기반 결과와 비교용)
+  async function runCompare() {
+    if (!farmerType || !topsisResult) return;
+    // 근거 블록은 runLayer1과 동일하게 재계산 (표·유형은 state 재사용)
+    const cropMeta = CROP_REGISTRY.find((c) => c.name === form.crop);
+    const consumeDataset = cropMeta?.consumeId
+      ? datasets.find((d) => d.id === cropMeta.consumeId)
+      : null;
+    const consumerInsight = consumeDataset?.consumerInsight || null;
+    const bench = findIncome(form.crop, incomeData);
+    const evidence = deriveIncomeEvidence(bench, form.curPrice);
+    const econ = computeEcon(form, bench);
+    const incomeBlock = buildIncomeBlock(evidence, form.crop, econ);
+
+    setCompareLoading(true);
+    setCompareOutput("");
+    setReasoningPortfolio(null);
+    try {
+      const prompt = buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock);
+      const full = await callClaude(prompt, (txt) => setCompareOutput(txt));
+      // 추론 결과에서 포트폴리오 경로 파싱 → 레이어2 기준선 후보로 보관, 판독 라인은 화면에서 제거
+      setReasoningPortfolio(parseReasoningPortfolio(full));
+      setCompareOutput(stripPortfolioMarker(full));
+    } catch (e) {
+      setCompareOutput("⚠️ 비교 분석 중 오류가 발생했습니다: " + e.message);
+    } finally {
+      setCompareLoading(false);
+    }
+  }
+
+  // [실험] 추론 우선 포트폴리오를 레이어2 출하 결정의 기준선으로 적용
+  function applyReasoningToLayer2() {
+    if (!reasoningPortfolio) return;
+    setLayer2Form((p) => ({ ...p, ...reasoningPortfolio }));
+    setLayer2Source("추론");
+    setStep(3);
+  }
+
+  // 규칙기반(TOPSIS) 포트폴리오를 레이어2 기준선으로 적용하고 출하 결정으로 이동
+  function goToLayer2RuleBased() {
+    if (topsisResult && farmerType) {
+      setLayer2Form((p) => ({
+        ...p,
+        mainRoute: topsisResult[0]?.route || "",
+        subRoute: topsisResult[1]?.route || "없음",
+        bufferRoute: topsisResult[2]?.route || "없음",
+        capability: farmerType.type === "A" ? "높음" : farmerType.type === "D" ? "낮음" : "보통",
+      }));
+    }
+    setLayer2Source("규칙기반");
+    setStep(3);
+  }
+
   async function runLayer2() {
     setLayer2Loading(true);
     setLayer2Output("");
     setStep(3);
     try {
-      const prompt = buildLayer2Prompt(layer1Output ? "레이어1 분석 완료 (위 결과 참고)" : null, { ...layer2Form, crop: form.crop, storage: form.storage });
+      const prompt = buildLayer2Prompt(layer1Output ? "레이어1 진단 완료 — 아래 주력/보완/완충 경로가 그 결과다" : null, { ...layer2Form, crop: form.crop, storage: form.storage });
       await callClaude(prompt, (txt) => setLayer2Output(txt));
     } catch (e) {
       setLayer2Output("⚠️ 분석 중 오류가 발생했습니다: " + e.message);
@@ -1255,7 +1561,7 @@ export default function PortfolioDiagnosis() {
                     <div style={{ fontSize: 12, color: theme.textFaint, flex: 1 }}>{ROUTE_ROLE[r.route]}</div>
                     <ScoreBadge score={r.score} />
                     <div style={{ width: 80, height: 8, background: theme.panelBorder, borderRadius: 4, overflow: "hidden" }}>
-                      <div style={{ width: `${r.score}%`, height: "100%", background: r.score >= 80 ? theme.accent : r.score >= 60 ? theme.info : theme.panelBorder, borderRadius: 4 }} />
+                      <div style={{ width: `${r.score}%`, height: "100%", background: r.score >= 65 ? theme.accent : r.score >= 50 ? theme.info : theme.panelBorder, borderRadius: 4 }} />
                     </div>
                   </div>
                 ))}
@@ -1313,23 +1619,67 @@ export default function PortfolioDiagnosis() {
           </div>
 
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 16 }}>
-              🤖 AI 포트폴리오 진단 결과
-              {layer1Loading && <span style={{ fontSize: 12, color: theme.accent, marginLeft: 8, fontWeight: 400 }}>분석 중...</span>}
-            </h3>
-            <div ref={outputRef} style={{ maxHeight: 500, overflowY: "auto", paddingRight: 4 }}>
-              {layer1Output ? <SimpleMarkdown text={layer1Output} /> : (
-                <div style={{ color: theme.textFaint, fontSize: 14, textAlign: "center", padding: 40 }}>
-                  {layer1Loading ? "🌱 분석 중입니다..." : "분석 결과가 여기에 표시됩니다."}
-                </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, color: theme.text, margin: 0 }}>
+                🤖 AI 포트폴리오 진단 결과
+                {layer1Loading && <span style={{ fontSize: 12, color: theme.accent, marginLeft: 8, fontWeight: 400 }}>분석 중...</span>}
+              </h3>
+              {!layer1Loading && layer1Output && (
+                <button
+                  style={{ ...btnSecondary, padding: "7px 16px", fontSize: 13, opacity: compareLoading ? 0.6 : 1 }}
+                  disabled={compareLoading}
+                  onClick={runCompare}
+                >
+                  {compareLoading ? "추론 진단 중..." : compareOutput ? "🧪 추론 우선 다시 비교" : "🧪 추론 우선 방식으로 비교"}
+                </button>
               )}
             </div>
+
+            {(compareOutput || compareLoading) ? (
+              // 비교 모드: 규칙기반(현재) vs 추론 우선 나란히
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+                <div style={{ border: `1px solid ${theme.panelBorder}`, borderRadius: 10, padding: 14, background: `${theme.panelAlt}55` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted, marginBottom: 4 }}>규칙기반 (현재)</div>
+                  <div style={{ fontSize: 11, color: theme.textFaint, marginBottom: 10 }}>TOPSIS 표 → LLM 해설</div>
+                  <div style={{ maxHeight: 560, overflowY: "auto", paddingRight: 4 }}>
+                    {layer1Output ? <SimpleMarkdown text={layer1Output} /> : <div style={{ color: theme.textFaint, fontSize: 13, padding: 20 }}>결과 없음</div>}
+                  </div>
+                </div>
+                <div style={{ border: `1.5px solid ${theme.accent}66`, borderRadius: 10, padding: 14, background: `${theme.accent}0c` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: theme.accent, marginBottom: 4 }}>🧪 추론 우선 (실험)</div>
+                  <div style={{ fontSize: 11, color: theme.textFaint, marginBottom: 10 }}>LLM 추론 → 표는 참고값</div>
+                  <div style={{ maxHeight: 560, overflowY: "auto", paddingRight: 4 }}>
+                    {compareOutput ? <SimpleMarkdown text={compareOutput} /> : (
+                      <div style={{ color: theme.textFaint, fontSize: 14, textAlign: "center", padding: 40 }}>🌱 추론 진단 중입니다...</div>
+                    )}
+                  </div>
+                  {reasoningPortfolio && !compareLoading && (
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${theme.divider}`, textAlign: "center" }}>
+                      <button style={{ ...btnPrimary, padding: "10px 20px", fontSize: 14 }} onClick={applyReasoningToLayer2}>
+                        🧪 이 추론 포트폴리오로 출하 결정(Layer2) →
+                      </button>
+                      <div style={{ fontSize: 11.5, color: theme.textFaint, marginTop: 6 }}>
+                        주력 <b style={{ color: theme.accent }}>{reasoningPortfolio.mainRoute}</b> · 보완 {reasoningPortfolio.subRoute} · 완충 {reasoningPortfolio.bufferRoute} · 역량 {reasoningPortfolio.capability}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div ref={outputRef} style={{ maxHeight: 500, overflowY: "auto", paddingRight: 4 }}>
+                {layer1Output ? <SimpleMarkdown text={layer1Output} /> : (
+                  <div style={{ color: theme.textFaint, fontSize: 14, textAlign: "center", padding: 40 }}>
+                    {layer1Loading ? "🌱 분석 중입니다..." : "분석 결과가 여기에 표시됩니다."}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <button style={btnSecondary} onClick={() => setStep(1)}>← 성향 재진단</button>
             {!layer1Loading && (
-              <button style={btnPrimary} onClick={() => setStep(3)}>
+              <button style={btnPrimary} onClick={goToLayer2RuleBased}>
                 출하 의사결정 (레이어2) →
               </button>
             )}
@@ -1348,7 +1698,17 @@ export default function PortfolioDiagnosis() {
           </div>
 
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 16 }}>📌 포트폴리오 기준선 (레이어1 결과 자동 연동)</h3>
+            <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              📌 포트폴리오 기준선 (레이어1 결과 자동 연동)
+              <span style={{
+                fontSize: 11.5, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+                background: layer2Source === "추론" ? `${theme.accent}22` : theme.panelAlt,
+                color: layer2Source === "추론" ? theme.accent : theme.textMuted,
+                border: `1px solid ${layer2Source === "추론" ? theme.accent + "66" : theme.panelBorder}`,
+              }}>
+                {layer2Source === "추론" ? "🧪 추론 우선 기준선" : "규칙기반 TOPSIS 기준선"}
+              </span>
+            </h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
               {l2Field("주력 경로", "mainRoute", ROUTES)}
               {l2Field("보완 경로", "subRoute", ["없음", ...ROUTES])}

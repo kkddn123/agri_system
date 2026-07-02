@@ -34,7 +34,7 @@ app.post("/api/analyze", async (req, res) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 4096,
+        max_tokens: 16000,
         stream: true,
         messages: [{ role: "user", content: prompt }],
       }),

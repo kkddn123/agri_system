@@ -21,6 +21,11 @@ export async function loadIncomeData() {
   return { items: data.crops || [], meta: data.meta || {} };
 }
 
+export async function loadShippingGuides() {
+  const data = await loadJSON("shipping-guides.json");
+  return { items: data.guides || [], meta: data.meta || {} };
+}
+
 export async function loadRdaCases() {
   const data = await loadJSON("rda-cases.json");
   return { items: data.cases || [], meta: data.meta || {} };

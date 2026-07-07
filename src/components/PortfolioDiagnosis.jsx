@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, card, badge } from "../theme";
-import { loadRdaCases, loadPublicDatasets, loadIncomeData } from "../lib/dataLoader";
+import { loadRdaCases, loadPublicDatasets, loadIncomeData, loadShippingGuides } from "../lib/dataLoader";
 import { CROP_REGISTRY, findCrop, parseUnitKg } from "../lib/cropRegistry";
 import { classifySupplyStageByItem } from "../lib/supplyThresholds";
 
@@ -373,8 +373,19 @@ function computeEcon(form, bench) {
   };
 }
 
+// ─── 거래특성·출하전략 근거 블록 (농진청 출하가이드 PDF 추출본) ────
+// shipping-guides.json의 품목별 insight를 프롬프트 근거로 변환. 매칭 없으면 빈 문자열.
+function buildGuideBlock(shippingGuides, cropName) {
+  if (!cropName) return "";
+  const g = (shippingGuides || []).find((x) => x.crop === cropName || String(cropName).includes(x.crop));
+  if (!g?.insight) return "";
+  return `[거래특성·출하전략 근거 (농진청 출하가이드)]
+- ${g.insight}
+- 위 품질기준·시세 시기·포장 추세·경로별 특성을 "경로별 평가", "추천 포트폴리오", "경로별 경쟁력 강화 과제"에 반드시 실제 근거로 반영하라. 이 근거와 어긋나는 일반론을 만들지 마라.`;
+}
+
 // ─── 레이어1 AI 분석 프롬프트 생성 (v8 기반 + 소득자료 연계) ──────
-function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock) {
+function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, guideBlock) {
   const typeInfo = TYPE_INFO[farmerType.type];
   const topRoutes = topsisResult.slice(0, 3).map((r) => `${r.route}(${r.score}점)`).join(", ");
 
@@ -424,6 +435,8 @@ ${consumerInsight
   ? `- ${consumerInsight}\n- 위 소비자 선호를 반드시 경로별 평가와 추천 포트폴리오에 반영하라. 특히 포장·규격·브랜드화·판매 채널 관련 시사점을 "경로별 경쟁력 강화 과제"에 구체적으로 연결하라.`
   : "- 이 품목은 소비월보 데이터가 없으므로 일반적인 소비 경향으로 판단한다."}
 
+${guideBlock || ""}
+
 ${incomeBlock || ""}
 
 ${buildSkipBlock(form)}
@@ -452,13 +465,16 @@ ${buildDefectBlock(form.defectRate)}
 - 점수는 TOPSIS 사전 점수를 기준으로 농가 역량 변수로 조정하되, 규칙기반 종합판단임을 명시
 
 **5. 추천 포트폴리오**
-- 현재 즉시 실행안: 최대 3개 경로, 합계 100%, 주력 40~60% / 보완 20~40% / 완충 10~30%
+- 먼저 이 농가에 맞는 포트폴리오 구조 유형을 판정하고 근거를 한 줄로 밝혀라: 단일집중 / 위계형 분산 / 양강 균형 / 계절·등급 분할
+- 현재 즉시 실행안: 경로 1~3개, 합계 100%. 비중 가이드(참고값이며 강제 아님): 주력 40~100% / 보완 20~40% / 완충 10~30%
+- 슬롯을 채우기 위한 배정 금지: 주력/보완/완충 3칸을 모두 채울 필요 없다. 근거가 약한 경로는 넣지 말고, 단일 경로 집중이 최적이면 주력 100%로 답하라
+- 양강 균형이면 두 경로 비중을 비슷하게 두고 위계를 억지로 만들지 마라. 계절·등급 분할이면 비중과 함께 시기별·등급별 경로 운용을 표로 제시하라
 - 준비 후 확대안: 필요할 때만 제시
 - 직거래(온라인)과 직거래(로컬푸드) 동시 포함 시 합산 노동부담 검토 결과 반드시 포함
 
 **6. 추천 사유**
-- 왜 이 경로 조합인지 (어떤 변수가 결정적이었는지)
-- 왜 다른 경로는 주력이 아닌지
+- 왜 이 구조 유형·경로 조합인지 (어떤 변수가 결정적이었는지)
+- 왜 다른 경로는 포트폴리오에서 제외했거나 낮은 비중인지
 
 **7. 경로별 경쟁력 강화 과제**
 생산·수확관리 / 선별·규격화 / 포장·소포장 / 판매·마케팅(온라인 채널 포함) / 조직화·계약 / 비상품 처리
@@ -493,7 +509,7 @@ ${buildDefectBlock(form.defectRate)}
 //    LLM이 스스로 경로 적합도를 추론·순위 매기며, 표와 다르면 그 이유를 밝히게 한다.
 // 목적: "표가 결정 → LLM이 해설" 구조를 "LLM이 추론 → 표는 참고"로 뒤집었을 때
 //       결과가 얼마나/어떻게 달라지는지 규칙기반 결과와 나란히 비교하기 위함.
-function buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock) {
+function buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, guideBlock) {
   return `당신은 이 농가 한 곳의 조건·성향·자원을 '있는 그대로' 읽고, 5개 판매경로가 이 농가에 실제로 맞는지를 스스로 추론해 판단하는 농업유통 컨설턴트다.
 이것은 규칙기반 점수표가 아니라 당신의 추론으로 순위를 정하는 실험 버전이다. 아래 사전 점수는 참고일 뿐이며, 당신의 판단과 다르면 반드시 그 이유를 밝혀라.
 
@@ -530,6 +546,8 @@ ${consumerInsight
   ? `- ${consumerInsight}\n- 이 소비자 선호를 경로별 판단과 추천에 실제로 반영하라.`
   : "- 이 품목은 소비월보 데이터가 없으므로 일반적인 소비 경향으로 판단한다."}
 
+${guideBlock || ""}
+
 ${incomeBlock || ""}
 
 ${buildSkipBlock(form)}
@@ -552,15 +570,18 @@ ${buildDefectBlock(form.defectRate)}
 - 반드시 당신의 추론으로 점수를 매기고, 위 규칙기반 사전 점수와 어긋나는 경로가 있으면 그 차이와 이유를 명시하라.
 
 **5. 추천 포트폴리오**
-- 즉시 실행안: 최대 3개 경로, 합계 100%, 주력 40~60% / 보완 20~40% / 완충 10~30%
+- 먼저 이 농가에 맞는 포트폴리오 구조 유형을 판정하고 근거를 한 줄로 밝혀라: 단일집중 / 위계형 분산 / 양강 균형 / 계절·등급 분할
+- 즉시 실행안: 경로 1~3개, 합계 100%. 비중 가이드(참고값이며 강제 아님): 주력 40~100% / 보완 20~40% / 완충 10~30%
+- 슬롯을 채우기 위한 배정 금지: 주력/보완/완충 3칸을 모두 채울 필요 없다. 근거가 약한 경로는 넣지 말고, 단일 경로 집중이 최적이면 주력 100%로 답하라
+- 양강 균형이면 위계를 억지로 만들지 말고, 비중이 크거나 전략적으로 더 중요한 쪽을 주력 칸에 표기하라. 계절·등급 분할이면 시기별·등급별 운용을 표로 함께 제시하라
 - 온라인+로컬푸드 동시 포함 시 합산 노동부담 검토 반드시 포함
 - 이 포트폴리오 표 바로 아래 줄에, 기계 판독용으로 아래 한 줄을 정확히 출력한 뒤 6~8번을 이어서 작성하라:
-  PORTFOLIO_ROUTES: 주력=<경로>, 보완=<경로 또는 없음>, 완충=<경로 또는 없음>, 역량=<낮음|보통|높음>
+  PORTFOLIO_ROUTES: 구조=<단일집중|위계형분산|양강균형|계절등급분할>, 주력=<경로>, 보완=<경로 또는 없음>, 완충=<경로 또는 없음>, 역량=<낮음|보통|높음>
   · <경로>는 반드시 5개 중 정확히 하나로 표기: 도매시장 / 생산자단체(조직출하) / 직거래(온라인) / 직거래(로컬푸드) / 산지유통인
-  · 주력/보완/완충은 위 포트폴리오 표와 정확히 일치, 역량은 3번의 판매운영 역량을 따른다
+  · 주력/보완/완충은 위 포트폴리오 표와 정확히 일치(사용하지 않은 역할은 '없음'), 역량은 3번의 판매운영 역량을 따른다
 
 **6. 추천 사유**
-- 어떤 변수가 결정적이었는지, 왜 다른 경로는 주력이 아닌지
+- 어떤 변수가 결정적이었는지, 왜 이 구조 유형인지, 왜 다른 경로는 제외했거나 낮은 비중인지
 
 **7. 경로별 경쟁력 강화 과제**
 생산·수확 / 선별·규격화 / 포장·소포장 / 판매·마케팅 / 조직화·계약 / 비상품 처리
@@ -612,7 +633,12 @@ function parseReasoningPortfolio(text) {
   if (!mainRoute) return null; // 주력조차 못 읽으면 적용 불가
   let capability = grab("역량");
   if (!["낮음", "보통", "높음"].includes(capability)) capability = "보통";
+  // 구조 유형은 선택 필드 (구버전 출력에는 없음)
+  const structureRaw = grab("구조").replace(/[·\s]/g, "");
+  const structureType =
+    ["단일집중", "위계형분산", "양강균형", "계절등급분할"].find((s) => structureRaw.includes(s)) || "";
   return {
+    structureType,
     mainRoute,
     subRoute: normalizeRoute(grab("보완")) || "없음",
     bufferRoute: normalizeRoute(grab("완충")) || "없음",
@@ -714,14 +740,14 @@ function friendlyApiError(status, rawBody) {
   } catch { /* 평문이면 그대로 사용 */ }
 
   const low = msg.toLowerCase();
-  if (low.includes("credit balance is too low") || low.includes("billing"))
-    return "Anthropic API 크레딧 잔액이 부족합니다. console.anthropic.com → Plans & Billing 에서 크레딧을 충전한 뒤 다시 시도하세요. (.env 의 ANTHROPIC_API_KEY 계정 기준)";
-  if (status === 401 || low.includes("authentication") || low.includes("invalid x-api-key"))
-    return "Anthropic API 키가 유효하지 않습니다. .env 의 ANTHROPIC_API_KEY 를 확인하세요.";
-  if (status === 429 || low.includes("rate limit"))
-    return "Anthropic API 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.";
-  if (status === 529 || low.includes("overloaded"))
-    return "Anthropic 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도하세요.";
+  if (low.includes("credit balance is too low") || low.includes("billing") || low.includes("insufficient_quota"))
+    return "AI API 크레딧/할당량이 부족합니다. 사용 중인 제공자 콘솔에서 결제 상태를 확인한 뒤 다시 시도하세요. (.env 의 AI_PROVIDER 에 설정된 제공자 기준)";
+  if (status === 401 || low.includes("authentication") || low.includes("invalid x-api-key") || low.includes("api key not valid") || low.includes("incorrect api key"))
+    return "AI API 키가 유효하지 않습니다. .env 에서 사용 중인 제공자의 API 키를 확인하세요.";
+  if (status === 429 || low.includes("rate limit") || low.includes("resource_exhausted"))
+    return "AI API 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.";
+  if (status === 529 || status === 503 || low.includes("overloaded"))
+    return "AI 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도하세요.";
   if (status === 0 || low.includes("failed to fetch"))
     return "백엔드 서버에 연결하지 못했습니다. server.js(포트 3001)가 실행 중인지 확인하세요.";
   return `API 오류 (${status}): ${msg || "서버 응답 없음. server.js가 실행 중인지 확인하세요."}`;
@@ -981,6 +1007,7 @@ export default function PortfolioDiagnosis() {
 
   const [datasets, setDatasets] = useState([]);
   const [incomeData, setIncomeData] = useState([]);
+  const [shippingGuides, setShippingGuides] = useState([]);
   const [incomeEvidence, setIncomeEvidence] = useState(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceAutoFilled, setPriceAutoFilled] = useState(false);
@@ -996,13 +1023,14 @@ export default function PortfolioDiagnosis() {
     loadRdaCases().then(({ items }) => { if (alive) setCases(items); }).catch(() => {});
     loadPublicDatasets().then(({ items }) => { if (alive) setDatasets(items); }).catch(() => {});
     loadIncomeData().then(({ items }) => { if (alive) setIncomeData(items); }).catch(() => {});
+    loadShippingGuides().then(({ items }) => { if (alive) setShippingGuides(items); }).catch(() => {});
     return () => { alive = false; };
   }, []);
 
   // KAMIS 시황 자동 조회 (Step 3 진입 시)
   useEffect(() => {
     if (step !== 3) return;
-    const cropMeta = CROP_REGISTRY.find((c) => c.name === form.crop);
+    const cropMeta = findCrop(form.crop);
     if (!cropMeta?.kamis) return;
 
     setPriceLoading(true);
@@ -1231,7 +1259,7 @@ export default function PortfolioDiagnosis() {
     }));
 
     // 소비월보 소비자 인사이트 조회
-    const cropMeta = CROP_REGISTRY.find((c) => c.name === form.crop);
+    const cropMeta = findCrop(form.crop);
     const consumeDataset = cropMeta?.consumeId
       ? datasets.find((d) => d.id === cropMeta.consumeId)
       : null;
@@ -1251,7 +1279,7 @@ export default function PortfolioDiagnosis() {
     setLayer2Source("규칙기반");
     setStep(2);
     try {
-      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight, incomeBlock);
+      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight, incomeBlock, buildGuideBlock(shippingGuides, form.crop));
       await callClaude(prompt, (txt) => setLayer1Output(txt));
     } catch (e) {
       setLayer1Output("⚠️ 분석 중 오류가 발생했습니다: " + e.message);
@@ -1264,7 +1292,7 @@ export default function PortfolioDiagnosis() {
   async function runCompare() {
     if (!farmerType || !topsisResult) return;
     // 근거 블록은 runLayer1과 동일하게 재계산 (표·유형은 state 재사용)
-    const cropMeta = CROP_REGISTRY.find((c) => c.name === form.crop);
+    const cropMeta = findCrop(form.crop);
     const consumeDataset = cropMeta?.consumeId
       ? datasets.find((d) => d.id === cropMeta.consumeId)
       : null;
@@ -1278,7 +1306,7 @@ export default function PortfolioDiagnosis() {
     setCompareOutput("");
     setReasoningPortfolio(null);
     try {
-      const prompt = buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock);
+      const prompt = buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, buildGuideBlock(shippingGuides, form.crop));
       const full = await callClaude(prompt, (txt) => setCompareOutput(txt));
       // 추론 결과에서 포트폴리오 경로 파싱 → 레이어2 기준선 후보로 보관, 판독 라인은 화면에서 제거
       setReasoningPortfolio(parseReasoningPortfolio(full));
@@ -1659,7 +1687,7 @@ export default function PortfolioDiagnosis() {
                         🧪 이 추론 포트폴리오로 출하 결정(Layer2) →
                       </button>
                       <div style={{ fontSize: 11.5, color: theme.textFaint, marginTop: 6 }}>
-                        주력 <b style={{ color: theme.accent }}>{reasoningPortfolio.mainRoute}</b> · 보완 {reasoningPortfolio.subRoute} · 완충 {reasoningPortfolio.bufferRoute} · 역량 {reasoningPortfolio.capability}
+                        {reasoningPortfolio.structureType ? `구조 ${reasoningPortfolio.structureType} · ` : ""}주력 <b style={{ color: theme.accent }}>{reasoningPortfolio.mainRoute}</b> · 보완 {reasoningPortfolio.subRoute} · 완충 {reasoningPortfolio.bufferRoute} · 역량 {reasoningPortfolio.capability}
                       </div>
                     </div>
                   )}

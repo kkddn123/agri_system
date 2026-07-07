@@ -35,8 +35,15 @@ export const CROP_REGISTRY = [
 ];
 
 export function findCrop(name) {
-  if (!name) return null;
-  return CROP_REGISTRY.find((c) => c.name === name) || null;
+  const t = String(name || "").trim();
+  if (!t) return null;
+  const exact = CROP_REGISTRY.find((c) => c.name === t);
+  if (exact) return exact;
+  // 부분 매칭: "방울토마토"→토마토, "봄감자"→감자처럼 수식어가 붙은 입력을 흡수.
+  // 작목명이 긴 후보를 우선해 가장 구체적인 작목으로 매칭한다.
+  const candidates = CROP_REGISTRY.filter((c) => t.includes(c.name) || c.name.includes(t));
+  if (!candidates.length) return null;
+  return candidates.sort((a, b) => b.name.length - a.name.length)[0];
 }
 
 // "10kg", "1.2kg(8~9개)", "kg", "8kg(상자)" 등에서 kg 환산 무게를 추출.

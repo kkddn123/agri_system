@@ -171,7 +171,26 @@
       "Skill(claude-api)",
       "Skill(claude-api:*)",
       "PowerShell(\\(Get-Content \"src\\\\components\\\\PortfolioDiagnosis.jsx\" | Measure-Object -Line\\).Lines)",
-      "PowerShell(node \"C:\\\\Users\\\\kkddn\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-kkddn-OneDrive-Desktop-agr-dashboard\\\\c18135a9-685b-4460-b37b-f3dff0f48b52\\\\scratchpad\\\\verify_topsis.mjs\")"
+      "PowerShell(node \"C:\\\\Users\\\\kkddn\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-kkddn-OneDrive-Desktop-agr-dashboard\\\\c18135a9-685b-4460-b37b-f3dff0f48b52\\\\scratchpad\\\\verify_topsis.mjs\")",
+      "Bash(python -c \"import pdfplumber; print\\('pdfplumber ok'\\)\")",
+      "Bash(python -c \"import pypdf; print\\('pypdf ok'\\)\")",
+      "Bash(py -c \"import sys; print\\(sys.version\\)\")",
+      "Bash(where python3 *)",
+      "Bash(pdftotext -layout \"사과 거래특성과 출하전략.PDF\" -)",
+      "Bash(pdftotext -enc UTF-8 -layout '사과 거래특성과 출하전략.PDF' __TRACKED_VAR__/apple.txt)",
+      "Bash(pdftotext -listenc)",
+      "Bash(pdftotext -enc UTF-8 \"일반_방울토마토 거래특성과 출하전략.PDF\" -)",
+      "Bash(pdfinfo \"일반_방울토마토 거래특성과 출하전략.PDF\")",
+      "Bash(node --check server.js)",
+      "Bash(PORT=3002 AI_PROVIDER=openai OPENAI_API_KEY= node server.js)",
+      "Bash(curl -s -X POST http://localhost:3002/api/analyze -H \"Content-Type: application/json\" -d '{\"prompt\":\"test\"}')",
+      "Bash(PORT=3003 node server.js)",
+      "Bash(curl -s -N --max-time 60 -X POST http://localhost:3003/api/analyze -H \"Content-Type: application/json\" -d '{\"prompt\":\"안녕이라고 한 단어로만 답해줘\"}')",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3002,3003 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -Confirm:$false })",
+      "Bash(node \"C:\\\\Users\\\\kkddn\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-kkddn-OneDrive-Desktop-agr-dashboard\\\\a6be4f84-369b-4c57-b49c-6e771727edbc\\\\scratchpad\\\\mock-openai.mjs\")",
+      "Bash(PORT=3004 AI_PROVIDER=openai OPENAI_API_KEY=dummy OPENAI_API_URL=http://localhost:3005/v1/chat/completions node server.js)",
+      "Bash(curl -s -N --max-time 15 -X POST http://localhost:3004/api/analyze -H \"Content-Type: application/json\" -d '{\"prompt\":\"test\"}')",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3004,3005 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -Confirm:$false })"
     ]
   }
 }

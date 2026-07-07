@@ -1,4 +1,4 @@
-// 이 서버는 브라우저 대신 Anthropic API를 호출해주는 역할만 합니다.
+// 이 서버는 브라우저 대신 AI API(Anthropic/OpenAI/Gemini)를 호출해주는 역할만 합니다.
 // API 키는 .env 파일에만 두고, 프론트엔드(브라우저) 코드에는 절대 넣지 않습니다.
 import "dotenv/config";
 import express from "express";
@@ -9,13 +9,38 @@ app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
 const PORT = process.env.PORT || 3001;
-const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 const KAMIS_KEY = process.env.KAMIS_API_KEY;
 
+// AI 제공자 전환: .env 의 AI_PROVIDER 값으로 선택 (anthropic | openai | gemini)
+// OpenAI와 Gemini는 같은 "OpenAI 호환" 스트림 형식을 쓰므로 어댑터 하나를 공유합니다.
+const AI_PROVIDER = (process.env.AI_PROVIDER || "anthropic").toLowerCase();
+const PROVIDERS = {
+  anthropic: {
+    keyEnv: "ANTHROPIC_API_KEY",
+    model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
+  },
+  openai: {
+    keyEnv: "OPENAI_API_KEY",
+    // OPENAI_API_URL 로 재정의하면 Ollama·LM Studio 등 OpenAI 호환 로컬 서버도 사용 가능
+    url: process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions",
+    model: process.env.OPENAI_MODEL || "gpt-5.1",
+  },
+  gemini: {
+    keyEnv: "GEMINI_API_KEY",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+  },
+};
+
 app.post("/api/analyze", async (req, res) => {
-  if (!API_KEY || API_KEY.includes("여기에")) {
-    res.status(500).json({ error: ".env 파일에 ANTHROPIC_API_KEY가 설정되어 있지 않습니다." });
+  const provider = PROVIDERS[AI_PROVIDER];
+  if (!provider) {
+    res.status(500).json({ error: `.env 의 AI_PROVIDER 값이 잘못되었습니다: "${AI_PROVIDER}" (anthropic | openai | gemini 중 하나)` });
+    return;
+  }
+  const apiKey = process.env[provider.keyEnv];
+  if (!apiKey || apiKey.includes("여기에")) {
+    res.status(500).json({ error: `.env 파일에 ${provider.keyEnv}가 설정되어 있지 않습니다. (현재 AI_PROVIDER=${AI_PROVIDER})` });
     return;
   }
   const { prompt } = req.body || {};
@@ -25,42 +50,101 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
-    const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 16000,
-        stream: true,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    if (!upstream.ok || !upstream.body) {
-      const text = await upstream.text();
-      res.status(upstream.status).json({ error: text });
-      return;
+    if (AI_PROVIDER === "anthropic") {
+      await streamAnthropic(res, apiKey, provider.model, prompt);
+    } else {
+      await streamOpenAICompat(res, provider, apiKey, prompt);
     }
-
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    const reader = upstream.body.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
-    }
-    res.end();
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+    else res.end();
   }
 });
+
+// Anthropic은 프론트엔드가 기대하는 형식(content_block_delta) 그대로 주므로 통째로 중계
+async function streamAnthropic(res, apiKey, model, prompt) {
+  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 16000,
+      stream: true,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text();
+    res.status(upstream.status).json({ error: text });
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const reader = upstream.body.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    res.write(value);
+  }
+  res.end();
+}
+
+// OpenAI/Gemini 스트림(choices[].delta.content)을 Anthropic 이벤트 형식으로 변환해 중계
+// → 프론트엔드(callClaude)는 제공자와 무관하게 동일하게 동작
+// max_tokens 는 보내지 않음: GPT-5 계열이 이 파라미터를 거부하며, 미지정 시 모델 기본 상한 사용
+async function streamOpenAICompat(res, provider, apiKey, prompt) {
+  const upstream = await fetch(provider.url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: provider.model,
+      stream: true,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text();
+    res.status(upstream.status).json({ error: text });
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = ""; // SSE 라인이 청크 경계에서 잘리면 다음 청크로 이월
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6).trim();
+      if (data === "[DONE]") continue;
+      try {
+        const text = JSON.parse(data).choices?.[0]?.delta?.content;
+        if (text) res.write(`data: ${JSON.stringify({ type: "content_block_delta", delta: { text } })}\n\n`);
+      } catch { /* 파싱 불가 라인은 무시 */ }
+    }
+  }
+  res.end();
+}
 
 // KAMIS 가격 조회 (일별/월별/연별)
 const KAMIS_ACTIONS = {

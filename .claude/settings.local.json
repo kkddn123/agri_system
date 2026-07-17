@@ -190,7 +190,15 @@
       "Bash(node \"C:\\\\Users\\\\kkddn\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-kkddn-OneDrive-Desktop-agr-dashboard\\\\a6be4f84-369b-4c57-b49c-6e771727edbc\\\\scratchpad\\\\mock-openai.mjs\")",
       "Bash(PORT=3004 AI_PROVIDER=openai OPENAI_API_KEY=dummy OPENAI_API_URL=http://localhost:3005/v1/chat/completions node server.js)",
       "Bash(curl -s -N --max-time 15 -X POST http://localhost:3004/api/analyze -H \"Content-Type: application/json\" -d '{\"prompt\":\"test\"}')",
-      "PowerShell(Get-NetTCPConnection -LocalPort 3004,3005 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -Confirm:$false })"
+      "PowerShell(Get-NetTCPConnection -LocalPort 3004,3005 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -Confirm:$false })",
+      "PowerShell(npm prefix -g; Test-Path \"$\\(npm prefix -g\\)\\\\codex.cmd\"; $env:Path -split ';' | Select-String -SimpleMatch \"npm\")",
+      "PowerShell(npm install -g @openai/codex --force 2>$null)",
+      "PowerShell(codex --version)",
+      "PowerShell(icacls \"C:\\\\Users\\\\kkddn\\\\AppData\\\\Roaming\\\\npm\\\\codex.cmd\")",
+      "Bash(netstat -ano)",
+      "PowerShell(Get-Process -Id 26736)",
+      "Bash(curl -s --max-time 10 http://localhost:3001/api/health)",
+      "Bash(curl -s -N --max-time 90 -X POST http://localhost:3001/api/analyze -H \"Content-Type: application/json\" -d '{\"prompt\":\"한 단어로만 답해: 안녕\"}')"
     ]
   }
 }

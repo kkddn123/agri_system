@@ -260,7 +260,9 @@ app.get("/api/consume/trend", async (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, hasKey: !!API_KEY && !API_KEY.includes("여기에") });
+  const provider = PROVIDERS[AI_PROVIDER];
+  const key = provider ? process.env[provider.keyEnv] : null;
+  res.json({ ok: true, provider: AI_PROVIDER, hasKey: !!key && !key.includes("여기에") });
 });
 
 app.listen(PORT, () => {

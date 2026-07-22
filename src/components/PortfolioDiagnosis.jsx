@@ -27,6 +27,77 @@ const ROUTE_ICON = {
   "산지유통인": "🚛",
 };
 
+// 경로별 상세 설명 — 화면 툴팁/카드와 AI 프롬프트 정의 블록에 공용으로 쓰인다.
+// 생산자단체(조직출하)는 시스템에서 설명이 얇았던 부분이라 유형·이점·조건을 두텁게 채웠다.
+const ROUTE_DETAIL = {
+  "도매시장": {
+    summary: "공영도매시장에 상장경매 또는 정가·수의매매로 출하해 중도매인을 통해 대량 물량을 신속 처리하는 경로.",
+    forms: ["상장경매(공판장)", "정가·수의매매", "시장도매인 거래"],
+    pros: ["대량 물량을 즉시 처리", "판로·정산의 안정성", "별도 판매영업 없이 출하 가능"],
+    cons: ["경매가 변동으로 수취가 통제가 어려움", "상장수수료·물류비 부담", "품질·브랜드 프리미엄 반영이 제한적"],
+    fit: "물량이 많고 규격을 갖춘 농가, 판매에 시간을 쓰기 어려운 농가",
+  },
+  "생산자단체(조직출하)": {
+    summary: "농협·영농조합법인·작목반 등 생산자 조직에 참여해 물량을 모아 공동 선별·공동 출하하는 경로. 산지유통센터(APC)를 거점으로 계통출하하는 형태를 포함한다.",
+    forms: [
+      "농협 계통출하 — 공동선별출하회(공선회)·연합사업",
+      "영농조합법인·농업회사법인 공동출하",
+      "작목반·품목별 생산자조직",
+      "APC(산지유통센터) 거점 공동선별·거점출하",
+    ],
+    pros: [
+      "물량을 결집해 거래 협상력 확보",
+      "공동정산·계약재배·수매로 가격변동을 완충(가격안정↑)",
+      "공동선별·규격화·공동브랜드로 상품성↑",
+      "선별·정산·클레임·물류를 조직이 대행 → 개별 노동·행정 부담↓",
+    ],
+    cons: [
+      "조합원 가입·출하약정 등 참여 조건 필요",
+      "계통 수수료·출하 규정(규격·시기) 준수",
+      "출하 시기·가격에 대한 개별 자율성 제약",
+      "정산까지 시간이 걸릴 수 있음",
+    ],
+    fit: "안정을 최우선하고 조직을 신뢰하며 규격 재배가 가능한 농가(특히 D 안정의존형)",
+  },
+  "직거래(온라인)": {
+    summary: "자사몰·오픈마켓·SNS 등으로 소비자에게 직접 비대면 판매하는 경로.",
+    forms: ["자사몰·스마트스토어", "오픈마켓(쿠팡·네이버 등)", "SNS·라이브커머스", "정기구독·꾸러미"],
+    pros: ["중간마진 제거로 최고 수취가 가능", "고객 데이터·브랜드 자산 축적", "가격 결정권 확보"],
+    cons: ["포장·CS·배송 노동이 큼", "마케팅·운영 역량 필요", "품질 클레임을 직접 대응"],
+    fit: "수익·도전 지향이 강하고 판매운영 역량과 시간 투입이 가능한 농가(특히 A 수익극대화형)",
+  },
+  "직거래(로컬푸드)": {
+    summary: "로컬푸드 직매장·꾸러미 등 지역 오프라인 채널로 소비자에게 직접 판매하는 경로.",
+    forms: ["로컬푸드 직매장", "농협 하나로·직판장", "지역 꾸러미·학교·급식 납품"],
+    pros: ["소량·다품목 출하에 유리", "지역 밀착으로 비교적 안정적 수취가", "당일 수확·신선도 강점"],
+    cons: ["지역 수요 규모의 한계", "매일 진열·소분 노동", "매장 입점·회원 조건"],
+    fit: "소규모·다품목·근거리 농가, 꾸준한 소량 출하가 가능한 농가",
+  },
+  "산지유통인": {
+    summary: "밭떼기(포전거래)·현장 수집 등으로 산지 수집상이 물량을 현장에서 즉시 사들이는 경로.",
+    forms: ["밭떼기·포전거래", "현장 수집·차상거래"],
+    pros: ["즉시 현금화", "수확·선별·물류 부담 없음", "기동성 있는 물량 처리"],
+    cons: ["수취가가 낮을 수 있음", "구두계약 등 거래 신뢰·이행 리스크", "시세 상승분을 농가가 가져가기 어려움"],
+    fit: "노동력이 부족하거나 물량을 빠르게 정리해야 하는 농가",
+  },
+};
+
+// AI 프롬프트에 넣을 경로 정의 텍스트 블록(공용). 화면 카드와 같은 데이터를 사용한다.
+function buildRouteDefinitionsBlock() {
+  const lines = ROUTES.map((route) => {
+    const d = ROUTE_DETAIL[route];
+    if (!d) return `- ${route}`;
+    return [
+      `- ${route}: ${d.summary}`,
+      `  · 형태: ${d.forms.join(" / ")}`,
+      `  · 이점: ${d.pros.join("; ")}`,
+      `  · 조건·제약: ${d.cons.join("; ")}`,
+      `  · 적합 농가: ${d.fit}`,
+    ].join("\n");
+  });
+  return `[판매경로별 정의 — 아래 정의에 근거해 경로를 평가하라]\n${lines.join("\n")}`;
+}
+
 // 행동 기반 성향 질문 5개 (v8과 동일)
 const BEHAVIOR_QUESTIONS = [
   {
@@ -519,6 +590,8 @@ function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, cons
 [판매경로 5개로 한정]
 도매시장 / 생산자단체(조직출하) / 직거래(온라인) / 직거래(로컬푸드) / 산지유통인
 
+${buildRouteDefinitionsBlock()}
+
 [농가 입력 정보]
 - 품목: ${form.crop || "미입력"}
 - 품종: ${form.variety || "미입력"}
@@ -648,6 +721,8 @@ function buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisRes
 
 [판매경로 5개로 한정]
 도매시장 / 생산자단체(조직출하) / 직거래(온라인) / 직거래(로컬푸드) / 산지유통인
+
+${buildRouteDefinitionsBlock()}
 
 [농가 입력 정보]
 - 품목: ${form.crop || "미입력"} / 품종: ${form.variety || "미입력"}
@@ -1096,6 +1171,47 @@ function ScoreBadge({ score }) {
     <span style={{ background: color, color: "#06210f", borderRadius: 20, padding: "2px 10px", fontSize: 13, fontWeight: 700 }}>
       {score}점 · {text}
     </span>
+  );
+}
+
+// TOPSIS 경로 행 — 클릭하면 경로 정의·이점·조건을 펼쳐 보여준다(설명 보강).
+function RouteScoreRow({ r, i }) {
+  const [open, setOpen] = useState(false);
+  const d = ROUTE_DETAIL[r.route];
+  return (
+    <div style={{ borderRadius: 8, overflow: "hidden", border: i === 0 ? `1.5px solid ${theme.accent}` : `1px solid ${theme.panelBorder}` }}>
+      <div
+        onClick={() => d && setOpen((v) => !v)}
+        style={{
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "10px 14px",
+          background: i === 0 ? `${theme.accent}15` : theme.panelAlt,
+          cursor: d ? "pointer" : "default",
+        }}
+      >
+        <div style={{ width: 22, height: 22, borderRadius: "50%", background: i < 3 ? theme.accent : theme.panelBorder, color: "#06210f", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+        <div style={{ fontSize: 14, color: theme.text }}>{ROUTE_ICON[r.route]} {r.route}</div>
+        <div style={{ fontSize: 12, color: theme.textFaint, flex: 1 }}>{ROUTE_ROLE[r.route]}</div>
+        <ScoreBadge score={r.score} />
+        <div style={{ width: 80, height: 8, background: theme.panelBorder, borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ width: `${r.score}%`, height: "100%", background: r.score >= 65 ? theme.accent : r.score >= 50 ? theme.info : theme.panelBorder, borderRadius: 4 }} />
+        </div>
+        {d && (
+          <span style={{ fontSize: 11, color: theme.textFaint, flexShrink: 0, width: 16, textAlign: "center" }}>{open ? "▲" : "▼"}</span>
+        )}
+      </div>
+      {open && d && (
+        <div style={{ padding: "12px 16px", background: theme.panel, borderTop: `1px solid ${theme.panelBorder}`, fontSize: 12.5, color: theme.textMuted, lineHeight: 1.6 }}>
+          <div style={{ color: theme.text, marginBottom: 10 }}>{d.summary}</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div><b style={{ color: theme.text }}>형태</b> · {d.forms.join(" / ")}</div>
+            <div><b style={{ color: theme.accent }}>이점</b> · {d.pros.join(" · ")}</div>
+            <div><b style={{ color: theme.warn }}>조건·제약</b> · {d.cons.join(" · ")}</div>
+            <div><b style={{ color: theme.text }}>적합 농가</b> · {d.fit}</div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1874,23 +1990,11 @@ export default function PortfolioDiagnosis() {
 
           {topsisResult && (
             <div style={cardStyle}>
-              <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 16 }}>📊 TOPSIS 경로 적합도 점수 (규칙기반)</h3>
+              <h3 style={{ fontSize: 15, color: theme.text, marginTop: 0, marginBottom: 6 }}>📊 TOPSIS 경로 적합도 점수 (규칙기반)</h3>
+              <div style={{ fontSize: 12, color: theme.textFaint, marginBottom: 14 }}>각 경로를 클릭하면 정의·이점·조건을 볼 수 있습니다.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {topsisResult.map((r, i) => (
-                  <div key={r.route} style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "10px 14px", borderRadius: 8,
-                    background: i === 0 ? `${theme.accent}15` : theme.panelAlt,
-                    border: i === 0 ? `1.5px solid ${theme.accent}` : `1px solid ${theme.panelBorder}`,
-                  }}>
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: i < 3 ? theme.accent : theme.panelBorder, color: "#06210f", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
-                    <div style={{ fontSize: 14, color: theme.text }}>{ROUTE_ICON[r.route]} {r.route}</div>
-                    <div style={{ fontSize: 12, color: theme.textFaint, flex: 1 }}>{ROUTE_ROLE[r.route]}</div>
-                    <ScoreBadge score={r.score} />
-                    <div style={{ width: 80, height: 8, background: theme.panelBorder, borderRadius: 4, overflow: "hidden" }}>
-                      <div style={{ width: `${r.score}%`, height: "100%", background: r.score >= 65 ? theme.accent : r.score >= 50 ? theme.info : theme.panelBorder, borderRadius: 4 }} />
-                    </div>
-                  </div>
+                  <RouteScoreRow key={r.route} r={r} i={i} />
                 ))}
               </div>
             </div>

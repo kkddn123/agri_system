@@ -6,7 +6,7 @@ const CATEGORY_LABELS = {
   A: "판매경로", B: "생산·유통관리", C: "소비자행동", D: "정보·교육", E: "식품부",
 };
 
-const FOLDER_ORDER = ["출하 가이드 · 거래전략", "수급관리", "소비정보", "소득·수익성"];
+const FOLDER_ORDER = ["출하 가이드 · 거래전략", "유통실태", "수급관리", "소비정보", "소득·수익성"];
 
 export default function PublicDataCatalog() {
   const [items, setItems] = useState(null); // null = 로딩중

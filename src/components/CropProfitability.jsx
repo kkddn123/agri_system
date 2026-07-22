@@ -45,6 +45,7 @@ export default function CropProfitability() {
       <h2 style={{ color: theme.text, fontSize: 18, margin: 0 }}>작목별 수익성 비교</h2>
       <p style={{ color: theme.textMuted, fontSize: 13, marginTop: 6, marginBottom: 16 }}>
         {meta.source || "농촌진흥청 농사로 농산물소득자료"}{meta.year ? ` · ${meta.year}년 기준` : ""}{meta.unit ? ` · ${meta.unit}` : ""}
+        {meta.year && <> · 소득자료는 연 1회 공표되며 <b style={{ color: theme.text }}>{meta.year}년</b>이 현재 제공되는 최신 연도입니다</>}
       </p>
 
       {allExample && (

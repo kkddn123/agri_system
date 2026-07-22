@@ -1,0 +1,24 @@
+# Render 배포 설정(Blueprint).
+# Render 대시보드에서 이 저장소를 연결하면 이 파일을 읽어 자동으로 서비스를 만든다.
+# 화면(dist)과 AI 중계 서버(server.js)를 하나의 웹 서비스로 함께 띄운다.
+services:
+  - type: web
+    name: agri-system
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # AI 제공자 선택: anthropic | openai | gemini
+      - key: AI_PROVIDER
+        value: anthropic
+      # 아래 키들은 값 노출을 막기 위해 Render 대시보드에서 직접 입력한다(sync: false).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: KAMIS_API_KEY
+        sync: false
+      - key: MAFRA_API_KEY
+        sync: false

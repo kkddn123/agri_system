@@ -23,7 +23,11 @@ export const CROP_REGISTRY = [
   { name: "양파",   category: "채소류",   kamis: { categoryCode: "200", itemCode: "245", kindCode: "00" }, trendItem: "양파",   guideId: null,                 consumeId: "RDA-CONSUME-2026-03" },
   { name: "마늘",   category: "채소류",   kamis: { categoryCode: "200", itemCode: "258", kindCode: "01" }, trendItem: "마늘",   guideId: null,                 consumeId: "RDA-CONSUME-2026-03" },
   { name: "대파",   category: "채소류",   kamis: { categoryCode: "200", itemCode: "246", kindCode: "00" }, trendItem: null,     guideId: "RDA-GUIDE-TRADE-05", consumeId: null },
-  { name: "토마토", category: "채소류",   kamis: { categoryCode: "200", itemCode: "225", kindCode: "00" }, trendItem: "토마토", guideId: "RDA-GUIDE-TRADE-07", consumeId: "RDA-CONSUME-2025-05" },
+  // 토마토는 일반/방울이 KAMIS 상 별도 품목이다(일반 225 · 방울 422, 방울은 부류코드 400).
+  // 방울토마토의 도매 시세는 kindCode 02(대추방울토마토)에만 집계된다 — 01(원형)은 소매만 제공.
+  // 대추형이 도매 거래금액의 81.8%를 차지해(2026 최적 출하 가이드) 대표값으로 타당.
+  { name: "토마토",     category: "채소류", kamis: { categoryCode: "200", itemCode: "225", kindCode: "00" }, trendItem: "토마토", guideId: "RDA-GUIDE-2026-06",  consumeId: "RDA-CONSUME-2023-02" },
+  { name: "방울토마토", category: "채소류", kamis: { categoryCode: "400", itemCode: "422", kindCode: "02" }, trendItem: null,     guideId: "RDA-GUIDE-2026-06",  consumeId: "RDA-CONSUME-2025-05" },
   { name: "오이",   category: "채소류",   kamis: { categoryCode: "200", itemCode: "223", kindCode: "01" }, trendItem: "오이",   guideId: "RDA-GUIDE-TRADE-08", consumeId: null },
   { name: "사과",   category: "과일류",   kamis: { categoryCode: "400", itemCode: "411", kindCode: "05" }, trendItem: "사과",   guideId: "RDA-GUIDE-TRADE-01", consumeId: "RDA-CONSUME-2024-10" },
   { name: "배",     category: "과일류",   kamis: { categoryCode: "400", itemCode: "412", kindCode: "01" }, trendItem: "배",     guideId: "RDA-GUIDE-TRADE-11", consumeId: "RDA-CONSUME-2025-09" },
@@ -39,8 +43,9 @@ export function findCrop(name) {
   if (!t) return null;
   const exact = CROP_REGISTRY.find((c) => c.name === t);
   if (exact) return exact;
-  // 부분 매칭: "방울토마토"→토마토, "봄감자"→감자처럼 수식어가 붙은 입력을 흡수.
-  // 작목명이 긴 후보를 우선해 가장 구체적인 작목으로 매칭한다.
+  // 부분 매칭: "봄감자"→감자, "시설방울토마토"→방울토마토처럼 수식어가 붙은 입력을 흡수.
+  // 작목명이 긴 후보를 우선해 가장 구체적인 작목으로 매칭한다
+  // (그래야 "시설방울토마토"가 토마토가 아니라 방울토마토로 간다).
   const candidates = CROP_REGISTRY.filter((c) => t.includes(c.name) || c.name.includes(t));
   if (!candidates.length) return null;
   return candidates.sort((a, b) => b.name.length - a.name.length)[0];

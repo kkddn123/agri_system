@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { theme, card, badge } from "../theme";
 
-const YEARS = ["2021", "2022", "2023", "2024", "2025"];
 const MONTHS = ["1","2","3","4","5","6","7","8","9","10","11","12"];
+
+// 이 통계는 원본 공표 주기가 늦어 최신 연월이 계속 바뀐다.
+// 연도 버튼을 하드코딩하지 않고 실제 응답에서 뽑아 쓴다.
+function coverageOf(rows) {
+  const keys = rows
+    .filter((r) => r.year && r.month)
+    .map((r) => `${r.year}-${String(r.month).padStart(2, "0")}`)
+    .sort();
+  return {
+    years: [...new Set(rows.map((r) => r.year).filter(Boolean))].sort(),
+    from: keys[0] || "",
+    to: keys[keys.length - 1] || "",
+  };
+}
 
 const CATEGORIES = ["전체", "근채류", "과채류", "엽경채류", "과실류", "양념채소류", "버섯류"];
 
@@ -23,6 +36,7 @@ export default function ConsumeTrend() {
   const [page, setPage] = useState(1);
   const [totalCnt, setTotalCnt] = useState(0);
   const [sampleOnly, setSampleOnly] = useState(false);
+  const [coverage, setCoverage] = useState({ years: [], from: "", to: "" });
 
   const fetchData = useCallback(async (p = 1) => {
     setLoading(true);
@@ -37,6 +51,8 @@ export default function ConsumeTrend() {
       setTotalCnt(json.totalCnt);
       setSampleOnly(json.sampleOnly);
       setPage(p);
+      // 연도·월 필터를 걸지 않은 조회일 때만 전체 수록 범위를 갱신
+      if (!year && !month) setCoverage(coverageOf(json.rows || []));
       const filtered = category === "전체"
         ? json.rows
         : json.rows.filter((r) => r.category === category);
@@ -70,6 +86,9 @@ export default function ConsumeTrend() {
       <h2 style={{ color: theme.text, fontSize: 18, margin: 0 }}>농식품 소비 트렌드</h2>
       <p style={{ color: theme.textMuted, fontSize: 13, marginTop: 6, marginBottom: 20 }}>
         농림축산식품부 소매가격 및 소비 트렌드 결합정보 · 품목별 월간 구매액·건수·평균가격
+        {coverage.from && (
+          <> · 수록 기간 <b style={{ color: theme.text }}>{coverage.from} ~ {coverage.to}</b> (원본 공표 기준)</>
+        )}
       </p>
 
       {sampleOnly && (
@@ -90,7 +109,7 @@ export default function ConsumeTrend() {
                 color: year === "" ? theme.accent : theme.textMuted,
                 fontWeight: year === "" ? 700 : 400,
               }}>전체</button>
-          {YEARS.map((y) => (
+          {coverage.years.map((y) => (
               <button key={y} onClick={() => setYear(y)} style={{
                 padding: "4px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer",
                 border: `1px solid ${year === y ? theme.accent : theme.panelBorder}`,

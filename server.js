@@ -3,6 +3,10 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
@@ -147,36 +151,169 @@ async function streamOpenAICompat(res, provider, apiKey, prompt) {
 }
 
 // KAMIS 가격 조회 (일별/월별/연별)
+// 월별·연별은 품목 파라미터를 그대로 받는 monthly/yearlySalesList 사용.
+// 일별은 dailySalesList 를 쓰면 안 된다 — 그 액션은 "최신 영업일 전체 품목 목록"이라
+// p_itemcode·기간을 무시하고 늘 같은 232건을 돌려준다. 품목별 일자 시계열은
+// periodProductList 가 정확한 액션이므로 daily 만 이쪽으로 보낸다.
 const KAMIS_ACTIONS = {
-  daily: "dailySalesList",
   monthly: "monthlySalesList",
   yearly: "yearlySalesList",
 };
 
+// periodProductList 는 날짜를 YYYY-MM-DD 로 받는다 (다른 액션은 YYYYMMDD)
+const dashDate = (s) => {
+  const v = String(s || "").replace(/-/g, "");
+  return v.length === 8 ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}` : v;
+};
+
 app.get("/api/kamis/price", async (req, res) => {
-  const { startDate, endDate, itemCode, kindCode, countryCode = "1101", rankCode = "04", period = "daily" } = req.query;
+  const {
+    startDate, endDate, itemCode, kindCode,
+    countryCode = "1101", rankCode = "04", period = "daily",
+    categoryCode = "", clsCode = "02", // clsCode: 01 소매 / 02 도매
+  } = req.query;
   if (!startDate || !endDate || !itemCode) {
     return res.status(400).json({ error: "startDate, endDate, itemCode 파라미터가 필요합니다." });
   }
-  const action = KAMIS_ACTIONS[period] || KAMIS_ACTIONS.daily;
+
+  const base = { p_cert_key: KAMIS_KEY, p_cert_id: "5005", p_returntype: "json" };
+  const isDaily = period === "daily";
+  const action = isDaily ? "periodProductList" : (KAMIS_ACTIONS[period] || KAMIS_ACTIONS.monthly);
+  const params = new URLSearchParams(
+    isDaily
+      ? {
+          ...base,
+          p_startday: dashDate(startDate),
+          p_endday: dashDate(endDate),
+          p_itemcategorycode: categoryCode,
+          p_itemcode: itemCode,
+          p_kindcode: kindCode || "01",
+          p_productrankcode: rankCode,
+          p_countrycode: countryCode,
+          p_productclscode: clsCode,
+          p_convert_kg_yn: "N",
+        }
+      : {
+          ...base,
+          p_startday: startDate,
+          p_endday: endDate,
+          p_itemcode: itemCode,
+          p_kindcode: kindCode || "01",
+          p_countrycode: countryCode,
+          p_rankcode: rankCode,
+        }
+  );
+
+  try {
+    const r = await fetch(`http://www.kamis.or.kr/service/price/xml.do?action=${action}&${params}`);
+    const data = await r.json();
+    if (!isDaily) return res.json(data);
+
+    // periodProductList 응답을 프론트가 쓰기 쉬운 시계열 형태로 정규화.
+    // 가격에 천단위 콤마가 섞여 오고, 조회 결과가 없으면 item 이 배열이 아닐 수 있다.
+    const rawItems = Array.isArray(data?.data?.item) ? data.data.item : [];
+    const series = rawItems
+      .filter((x) => x.regday && x.price && x.price !== "-")
+      .map((x) => ({
+        date: `${x.yyyy}-${String(x.regday).replace(/\//g, "-")}`,
+        price: Number(String(x.price).replace(/,/g, "")),
+        market: x.countyname || "",
+      }))
+      .filter((x) => Number.isFinite(x.price))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    res.json({
+      period: "daily",
+      clsCode,
+      error_code: data?.data?.error_code ?? "000",
+      series,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 판매경로 진단용 시세 기준선 — 해당 품목의 연평균 도매·소매가를 원/kg 으로 환산해 제공.
+// 농가 수취단가를 도매·소매와 견주어 "유통 단계에서 얼마를 남기고 있는가"를 보기 위한 값이라
+// 단위가 5kg·20kg·100g 등으로 제각각인 KAMIS 응답을 kg 기준으로 통일해 돌려준다.
+const unitToKg = (s) => {
+  const t = String(s || "");
+  const kg = t.match(/([\d.]+)\s*kg/i);
+  if (kg) return parseFloat(kg[1]);
+  const g = t.match(/([\d.]+)\s*g/i);
+  if (g) return parseFloat(g[1]) / 1000;
+  return null;
+};
+const num = (v) => {
+  const n = Number(String(v ?? "").replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+};
+
+// KAMIS 는 과부하 시 JSON 대신 에러 HTML/빈 응답을 줘서 r.json() 이 간헐적으로 터진다.
+// 텍스트로 받아 직접 파싱하고, 실패하면 짧게 백오프하며 재시도한다.
+async function fetchKamisJson(url, tries = 3) {
+  for (let i = 0; i < tries; i++) {
+    try {
+      const r = await fetch(url);
+      const text = await r.text();
+      const json = JSON.parse(text);
+      if (json) return json;
+    } catch { /* 파싱 실패 = 일시적 오류로 보고 재시도 */ }
+    if (i < tries - 1) await new Promise((s) => setTimeout(s, 600 * (i + 1)));
+  }
+  return null;
+}
+
+// 성공 결과는 메모리에 캐시한다 — 시연 중 같은 품목을 반복 조회해도 KAMIS 를 다시 때리지 않아
+// 응답이 빠르고 안정적이다. 시세 기준선은 연 단위 값이라 하루짜리 TTL로 충분.
+const benchCache = new Map(); // key: `${itemCode}:${kindCode}` → { at, value }
+const BENCH_TTL = 24 * 60 * 60 * 1000;
+
+app.get("/api/kamis/benchmark", async (req, res) => {
+  const { itemCode, kindCode = "00", countryCode = "1101", rankCode = "04" } = req.query;
+  if (!itemCode) return res.status(400).json({ error: "itemCode 파라미터가 필요합니다." });
+
+  const cacheKey = `${itemCode}:${kindCode}`;
+  const cached = benchCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < BENCH_TTL) return res.json(cached.value);
+
+  const thisYear = new Date().getFullYear();
   const params = new URLSearchParams({
     p_cert_key: KAMIS_KEY,
     p_cert_id: "5005",
     p_returntype: "json",
-    p_startday: startDate,
-    p_endday: endDate,
+    p_startday: `${thisYear - 2}0101`,
+    p_endday: `${thisYear}1231`,
     p_itemcode: itemCode,
-    p_kindcode: kindCode || "01",
+    p_kindcode: kindCode,
     p_countrycode: countryCode,
     p_rankcode: rankCode,
   });
-  try {
-    const r = await fetch(`http://www.kamis.or.kr/service/price/xml.do?action=${action}&${params}`);
-    const data = await r.json();
-    res.json(data);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+
+  const data = await fetchKamisJson(`http://www.kamis.or.kr/service/price/xml.do?action=yearlySalesList&${params}`);
+  const list = Array.isArray(data?.price) ? data.price : [];
+
+  // 같은 부류에 상품·중품이 함께 오므로 '상품'만 쓴다. 연도는 최신값 우선.
+  const pick = (clsCode) => {
+    for (const p of list) {
+      if (p.productclscode !== clsCode) continue;
+      if (!String(p.caption || "").includes("상품")) continue;
+      const perUnit = unitToKg(String(p.caption).split(">").pop());
+      const rows = Array.isArray(p.item) ? p.item : [];
+      for (const row of rows.filter((x) => /^\d{4}$/.test(x.div)).sort((a, b) => b.div.localeCompare(a.div))) {
+        const avg = num(row.avg_data);
+        if (avg && perUnit) {
+          return { year: row.div, pricePerKg: Math.round(avg / perUnit), unit: String(p.caption).split(">").pop().trim() };
+        }
+      }
+    }
+    return null;
+  };
+
+  const value = { wholesale: pick("02"), retail: pick("01") };
+  // 실제 값이 있을 때만 캐시 — 상류 실패(빈 결과)를 굳혀 두지 않는다.
+  if (value.wholesale || value.retail) benchCache.set(cacheKey, { at: Date.now(), value });
+  res.json(value); // 실패해도 200 + 빈 값: 프론트는 카드만 감추고 진단은 계속
 });
 
 // KAMIS 품목 코드 목록 조회
@@ -264,6 +401,18 @@ app.get("/api/health", (req, res) => {
   const key = provider ? process.env[provider.keyEnv] : null;
   res.json({ ok: true, provider: AI_PROVIDER, hasKey: !!key && !key.includes("여기에") });
 });
+
+// 프로덕션(배포)에서는 이 서버가 빌드된 프론트엔드(dist)도 함께 서빙한다.
+// → 클라우드에 서비스 하나만 올리면 화면 + API 가 같은 주소에서 동작한다.
+// 개발 중에는 vite 개발 서버가 화면을 담당하므로 이 블록을 건너뛴다.
+if (process.env.NODE_ENV === "production") {
+  const distDir = path.join(__dirname, "dist");
+  app.use(express.static(distDir));
+  // API 를 제외한 모든 경로는 SPA 진입점(index.html)으로 넘긴다.
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(distDir, "index.html"));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`AI 분석 서버 실행 중: http://localhost:${PORT}`);

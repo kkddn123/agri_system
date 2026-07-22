@@ -52,11 +52,11 @@ function buildItems() {
   for (const c of CROP_REGISTRY) {
     const cat = c.kamis?.categoryCode;
     if (!cat || !out[cat]) continue;
-    out[cat].push({ code: c.kamis.itemCode, kindCode: c.kamis.kindCode, name: c.name });
+    out[cat].push({ code: c.kamis.itemCode, kindCode: c.kamis.kindCode, name: c.name, categoryCode: cat });
   }
   for (const [cat, items] of Object.entries(EXTRA_ITEMS)) {
     for (const it of items) {
-      if (!out[cat].some((x) => x.code === it.code)) out[cat].push(it);
+      if (!out[cat].some((x) => x.code === it.code)) out[cat].push({ ...it, categoryCode: cat });
     }
   }
   return out;
@@ -100,19 +100,19 @@ function defaultDates(period) {
   return { start: nYearsAgo(4), end: nYearsAgo(0) };
 }
 
-const DIRECTION = {
-  "1": { label: "▲", color: theme.danger },
-  "2": { label: "▼", color: theme.info },
-  "0": { label: "—", color: theme.textMuted },
-};
-
 const clsLabel = (code) => (code === "02" ? "도매" : "소매");
 const clsColor = (code) => (code === "02" ? theme.accent : theme.info);
+
+const CLS_OPTIONS = [
+  { code: "02", label: "도매" },
+  { code: "01", label: "소매" },
+];
 
 export default function KamisPrice() {
   const [categoryCode, setCategoryCode] = useState("200");
   const [selectedItem, setSelectedItem] = useState(ITEMS["200"][0]);
   const [period, setPeriod] = useState("daily");
+  const [clsCode, setClsCode] = useState("02");
   const [startDate, setStartDate] = useState(nDaysAgo(30));
   const [endDate, setEndDate] = useState(today());
   const [data, setData] = useState(null);
@@ -142,6 +142,8 @@ export default function KamisPrice() {
         startDate, endDate,
         itemCode: selectedItem.code,
         kindCode: selectedItem.kindCode,
+        categoryCode: selectedItem.categoryCode || categoryCode,
+        clsCode,
         period,
       });
       const res = await fetch(`/api/kamis/price?${params}`);
@@ -156,7 +158,7 @@ export default function KamisPrice() {
     } finally {
       setLoading(false);
     }
-  }, [selectedItem, startDate, endDate, period]);
+  }, [selectedItem, startDate, endDate, period, clsCode, categoryCode]);
 
   const priceList = Array.isArray(data?.price) ? data.price : [];
   const inputType = period === "yearly" ? "number" : period === "monthly" ? "month" : "date";
@@ -184,6 +186,24 @@ export default function KamisPrice() {
             ))}
           </div>
         </div>
+
+        {/* 가격 구분 (일별 조회에만 적용 — 월별·연별은 도매·소매가 함께 옴) */}
+        {period === "daily" && (
+          <div>
+            <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 8 }}>가격 구분</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {CLS_OPTIONS.map((c) => (
+                <button key={c.code} onClick={() => { setClsCode(c.code); setData(null); }} style={{
+                  padding: "5px 18px", borderRadius: 8, fontSize: 13, cursor: "pointer",
+                  border: `1px solid ${clsCode === c.code ? theme.accent : theme.panelBorder}`,
+                  background: clsCode === c.code ? `${theme.accent}22` : theme.panelAlt,
+                  color: clsCode === c.code ? theme.accent : theme.textMuted,
+                  fontWeight: clsCode === c.code ? 700 : 400,
+                }}>{c.label}</button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 품목 분류 */}
         <div>
@@ -261,7 +281,7 @@ export default function KamisPrice() {
         </div>
       )}
 
-      {data && period === "daily"   && <DailyResult priceList={priceList} condition={data.condition} />}
+      {data && period === "daily"   && <DailyResult series={data.series} itemName={selectedItem?.name} clsCode={clsCode} />}
       {data && period === "monthly" && <MonthlyResult priceList={priceList} />}
       {data && period === "yearly"  && <YearlyResult priceList={priceList} />}
     </div>
@@ -269,67 +289,148 @@ export default function KamisPrice() {
 }
 
 /* ---------- 일별 ---------- */
-function DailyResult({ priceList, condition }) {
-  if (!priceList.length) return <Empty />;
+// periodProductList 는 같은 날짜에 "평균"(당해) · "평년"(최근 5년) · 지역명 계열을
+// 함께 돌려준다. 당해 평균을 본선으로, 평년을 비교선으로 쓴다.
+function pickSeries(series, name) {
+  const rows = (series || []).filter((s) => s.market === name);
+  return new Map(rows.map((s) => [s.date, s.price]));
+}
+
+function DailyResult({ series, itemName, clsCode }) {
+  const cur = pickSeries(series, "평균");
+  const normal = pickSeries(series, "평년");
+  const dates = [...cur.keys()].sort();
+  if (!dates.length) return <Empty />;
+
+  const prices = dates.map((d) => cur.get(d));
+  const latestDate = dates[dates.length - 1];
+  const latest = cur.get(latestDate);
+  const prev = dates.length > 1 ? cur.get(dates[dates.length - 2]) : null;
+  const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+  const max = Math.max(...prices);
+  const min = Math.min(...prices);
+  const latestNormal = normal.get(latestDate);
+  const vsNormal = latestNormal ? Math.round(((latest - latestNormal) / latestNormal) * 1000) / 10 : null;
+  const dayChange = prev ? Math.round(((latest - prev) / prev) * 1000) / 10 : null;
+
+  const won = (n) => (n == null ? "-" : `${n.toLocaleString()}원`);
+  const summary = [
+    ["최근 시세", won(latest), latestDate, theme.text],
+    ["기간 평균", won(avg), `${dates.length}일 조회`, theme.text],
+    ["기간 최고", won(max), "", theme.danger],
+    ["기간 최저", won(min), "", theme.info],
+  ];
+
   return (
     <>
-      <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 8 }}>
-        기준일: {condition?.[0]?.[0] || "-"}
+      <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 10 }}>
+        <span style={badge(clsColor(clsCode))}>{clsLabel(clsCode)}</span>{" "}
+        {itemName} · 최근 갱신일 <b style={{ color: theme.text }}>{latestDate}</b>
+        {dayChange != null && (
+          <span style={{ color: dayChange > 0 ? theme.danger : dayChange < 0 ? theme.info : theme.textMuted, marginLeft: 8 }}>
+            직전 조사일 대비 {dayChange > 0 ? "▲" : dayChange < 0 ? "▼" : "—"} {Math.abs(dayChange)}%
+          </span>
+        )}
       </div>
-      {priceList.slice(0, 4).map((p, i) => {
-        const dir = DIRECTION[p.direction] || DIRECTION["0"];
-        return (
-          <div key={i} style={{ ...card, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 13, color: theme.text, fontWeight: 600 }}>{p.productName}</div>
-              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
-                <span style={badge(clsColor(p.product_cls_code))}>{p.product_cls_name}</span>{" "}{p.unit}
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: theme.text }}>
-                {p.dpr1 ? `${p.dpr1}원` : "-"}{" "}
-                <span style={{ fontSize: 13, color: dir.color }}>{dir.label} {p.value !== "0.0" ? `${p.value}%` : ""}</span>
-              </div>
-              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
-                1개월전 {p.dpr3 || "-"}원 · 1년전 {p.dpr4 || "-"}원
-              </div>
-            </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 12 }}>
+        {summary.map(([label, value, sub, color]) => (
+          <div key={label} style={{ ...card, padding: 14 }}>
+            <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color }}>{value}</div>
+            {sub && <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{sub}</div>}
           </div>
-        );
-      })}
-      <div style={{ ...card, marginTop: 8, overflowX: "auto" }}>
+        ))}
+      </div>
+
+      {vsNormal != null && (
+        <div style={{ ...card, marginBottom: 12, fontSize: 13, color: theme.textMuted }}>
+          최근 시세는 평년({won(latestNormal)}) 대비{" "}
+          <b style={{ color: vsNormal >= 0 ? theme.danger : theme.info }}>
+            {vsNormal >= 0 ? "+" : ""}{vsNormal}%
+          </b>{" "}
+          {Math.abs(vsNormal) < 5 ? "— 평년과 비슷한 수준입니다." : vsNormal > 0 ? "— 평년보다 높습니다." : "— 평년보다 낮습니다."}
+        </div>
+      )}
+
+      <PriceChart dates={dates} cur={cur} normal={normal} />
+
+      <div style={{ ...card, marginTop: 12, overflowX: "auto", maxHeight: 420, overflowY: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
           <thead>
             <tr style={{ color: theme.textMuted, borderBottom: `1px solid ${theme.divider}` }}>
-              <th style={th("left")}>품목명</th>
-              <th style={th("left")}>구분</th>
-              <th style={th("right")}>당일</th>
-              <th style={th("right")}>1일전</th>
-              <th style={th("right")}>1개월전</th>
-              <th style={th("right")}>1년전</th>
-              <th style={th("center")}>등락</th>
+              <th style={th("left")}>날짜</th>
+              <th style={th("right")}>가격</th>
+              <th style={th("right")}>평년</th>
+              <th style={th("right")}>평년 대비</th>
             </tr>
           </thead>
           <tbody>
-            {priceList.map((p, i) => {
-              const dir = DIRECTION[p.direction] || DIRECTION["0"];
+            {[...dates].reverse().map((d) => {
+              const p = cur.get(d);
+              const n = normal.get(d);
+              const gap = n ? Math.round(((p - n) / n) * 1000) / 10 : null;
               return (
-                <tr key={i} style={{ borderBottom: `1px solid ${theme.divider}`, color: theme.text }}>
-                  <td style={td()}>{p.productName}</td>
-                  <td style={td()}><span style={badge(clsColor(p.product_cls_code))}>{p.product_cls_name}</span></td>
-                  <td style={td("right", 600)}>{p.dpr1 || "-"}</td>
-                  <td style={td("right", 400, theme.textMuted)}>{p.dpr2 || "-"}</td>
-                  <td style={td("right", 400, theme.textMuted)}>{p.dpr3 || "-"}</td>
-                  <td style={td("right", 400, theme.textMuted)}>{p.dpr4 || "-"}</td>
-                  <td style={{ ...td("center", 700), color: dir.color }}>{dir.label} {p.value !== "0.0" ? `${p.value}%` : ""}</td>
+                <tr key={d} style={{ borderBottom: `1px solid ${theme.divider}`, color: theme.text }}>
+                  <td style={td()}>{d}</td>
+                  <td style={td("right", 600)}>{p.toLocaleString()}</td>
+                  <td style={td("right", 400, theme.textMuted)}>{n ? n.toLocaleString() : "-"}</td>
+                  <td style={{ ...td("right", 600), color: gap == null ? theme.textMuted : gap >= 0 ? theme.danger : theme.info }}>
+                    {gap == null ? "-" : `${gap >= 0 ? "+" : ""}${gap}%`}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 8 }}>
+        단위: 원 · 조사일이 없는 날(주말·공휴일)은 표에 나타나지 않습니다 · 평년은 최근 5년 같은 시기 평균
+      </div>
     </>
+  );
+}
+
+/* 기간 시세 추이 — 당해(실선) vs 평년(점선) */
+function PriceChart({ dates, cur, normal }) {
+  const W = 720, H = 180, PAD = { t: 12, r: 12, b: 22, l: 56 };
+  const all = [...dates.map((d) => cur.get(d)), ...dates.map((d) => normal.get(d)).filter(Boolean)];
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const span = hi - lo || 1;
+  const x = (i) => PAD.l + (i * (W - PAD.l - PAD.r)) / Math.max(1, dates.length - 1);
+  const y = (v) => PAD.t + (1 - (v - lo) / span) * (H - PAD.t - PAD.b);
+  const path = (get) => {
+    const pts = dates.map((d, i) => [i, get(d)]).filter(([, v]) => v != null);
+    return pts.map(([i, v], k) => `${k ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  };
+  const label = (v) => (v >= 10000 ? `${Math.round(v / 1000)}천` : v.toLocaleString());
+
+  return (
+    <div style={{ ...card, padding: 14 }}>
+      <div style={{ display: "flex", gap: 14, fontSize: 11, color: theme.textMuted, marginBottom: 6 }}>
+        <span><span style={{ color: theme.accent, fontWeight: 700 }}>—</span> 당해</span>
+        <span><span style={{ color: theme.textFaint, fontWeight: 700 }}>┄</span> 평년</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+        {[0, 0.5, 1].map((r) => {
+          const v = lo + span * (1 - r);
+          const yy = PAD.t + r * (H - PAD.t - PAD.b);
+          return (
+            <g key={r}>
+              <line x1={PAD.l} x2={W - PAD.r} y1={yy} y2={yy} stroke={theme.divider} strokeWidth="1" />
+              <text x={PAD.l - 8} y={yy + 4} textAnchor="end" fontSize="10" fill={theme.textMuted}>{label(Math.round(v))}</text>
+            </g>
+          );
+        })}
+        <path d={path((d) => normal.get(d))} fill="none" stroke={theme.textFaint} strokeWidth="1.5" strokeDasharray="4 3" />
+        <path d={path((d) => cur.get(d))} fill="none" stroke={theme.accent} strokeWidth="2" />
+        {[0, dates.length - 1].map((i) => (
+          <text key={i} x={x(i)} y={H - 6} textAnchor={i === 0 ? "start" : "end"} fontSize="10" fill={theme.textMuted}>
+            {dates[i]?.slice(5)}
+          </text>
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -418,8 +519,11 @@ function YearlyResult({ priceList }) {
 
 function Empty() {
   return (
-    <div style={{ ...card, color: theme.textMuted, fontSize: 13, textAlign: "center" }}>
-      해당 기간의 가격 데이터가 없습니다.
+    <div style={{ ...card, color: theme.textMuted, fontSize: 13, textAlign: "center", lineHeight: 1.7 }}>
+      해당 기간에 조사된 가격이 없습니다.<br />
+      <span style={{ fontSize: 12, color: theme.textFaint }}>
+        제철이 아닌 품목은 거래가 없어 시세가 집계되지 않습니다. 조회 기간을 넓히거나 출하기로 옮겨 다시 조회해 보세요.
+      </span>
     </div>
   );
 }

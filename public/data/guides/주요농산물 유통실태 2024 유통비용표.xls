@@ -1,0 +1,872 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<HTML xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko" lang="ko">
+<head>
+	<title>유통실태 > 국내유통실태 - 유통비용 엑셀 출력</title>
+	<meta http-equiv="Content-Type" content="application/vnd.ms-excel;charset=utf-8">
+	<style type="text/css">
+		p				{ text-align:right; }
+		table caption	{ text-align:left; }
+		table th		{ background-color:#eff2f9; }
+		table td		{ mso-number-format:\@; text-align:general; vertical-align:middle; text-align:center; white-space:nowrap; mso-rotate:0; mso-background-source:auto; mso-pattern:auto; color:black; font-size:11.0pt; font-style:normal; text-decoration:none; font-family:"맑은 고딕", monospace; mso-font-charset:129; border:1px; mso-protection:locked visible; mso-style-name:표준; mso-style-id:0; }
+		table td.c		{ text-align:center;}
+		table td.l		{ text-align:left; }
+		table td.r		{ text-align:right; }
+	</style>
+</head>
+<body>
+	<table>
+		<tr>
+			<td	class="data">
+				<table id="data" border="1px">
+					
+								<caption>연도별 농산물 유통실태 및 비용에 대한 정보를 제공</caption>
+								<colgroup><col><col><col><col><col><col><col><col><col><col><col>
+								</colgroup><thead>
+									<tr>
+										<th scope="col" colspan="2" rowspan="2">품목</th>
+										<th scope="col" colspan="4">2023년</th>
+										<th scope="col" colspan="4">2024년</th>
+										<th scope="col" rowspan="2">증감 (B-A)</th>
+									</tr>
+									<tr>
+										<th style="position: relative;">계(A)</th>
+										<th scope="col">직접비</th>
+										<th scope="col">간접비</th>
+										<th scope="col">이윤</th>
+										<th scope="col">계(B)</th>
+										<th scope="col">직접비</th>
+										<th scope="col">간접비</th>
+										<th scope="col">이윤</th>
+									</tr>
+								</thead>
+								
+								
+									
+									
+										
+											
+											<tbody><tr>
+												
+													
+														<th scope="col" rowspan="7" class="tsw_fix" style="left: 0px;">식량작물</th>
+													
+													
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">쌀</th>
+												
+												
+												<td>26.4</td>
+												<td>10.7</td>
+												<td>7.1</td>
+												<td>8.6</td>
+												<td>25.9</td>
+												<td>12.3</td>
+												<td>5.8</td>
+												<td>7.8</td>
+												<td>-0.5</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">콩</th>
+												
+												
+												<td>47.2</td>
+												<td>5.0</td>
+												<td>11.3</td>
+												<td>30.9</td>
+												<td>44.1</td>
+												<td>5.2</td>
+												<td>7.0</td>
+												<td>31.9</td>
+												<td>-3.1</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">봄감자</th>
+												
+												
+												<td>53.2</td>
+												<td>24.5</td>
+												<td>5.9</td>
+												<td>22.8</td>
+												<td>55.7</td>
+												<td>23.5</td>
+												<td>8.0</td>
+												<td>24.2</td>
+												<td>2.5</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">고랭지감자</th>
+												
+												
+												<td>59.4</td>
+												<td>21.9</td>
+												<td>4.1</td>
+												<td>33.4</td>
+												<td>58.3</td>
+												<td>26.9</td>
+												<td>6.2</td>
+												<td>25.2</td>
+												<td>-1.1</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가을감자</th>
+												
+												
+												<td>51.3</td>
+												<td>24.0</td>
+												<td>6.4</td>
+												<td>20.9</td>
+												<td>52.6</td>
+												<td>24.9</td>
+												<td>8.2</td>
+												<td>19.5</td>
+												<td>1.3</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">고구마</th>
+												
+												
+												<td>70.4</td>
+												<td>35.0</td>
+												<td>6.7</td>
+												<td>28.7</td>
+												<td>72.9</td>
+												<td>30.4</td>
+												<td>8.5</td>
+												<td>34.0</td>
+												<td>2.5</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가중평균</th>
+												
+												
+												<td>35.9</td>
+												<td>14.1</td>
+												<td>7.3</td>
+												<td>14.5</td>
+												<td>36.4</td>
+												<td>14.8</td>
+												<td>6.4</td>
+												<td>15.2</td>
+												<td>0.5</td>
+											</tr>
+										
+											
+											<tr>
+												
+													
+														<th scope="col" rowspan="9" class="tsw_fix" style="left: 0px;">엽근채소류</th>
+													
+													
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">봄배추</th>
+												
+												
+												<td>58.6</td>
+												<td>33.3</td>
+												<td>8.4</td>
+												<td>16.9</td>
+												<td>52.8</td>
+												<td>34.5</td>
+												<td>7.4</td>
+												<td>10.9</td>
+												<td>-5.8</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">고랭지배추</th>
+												
+												
+												<td>56.8</td>
+												<td>34.5</td>
+												<td>8.7</td>
+												<td>13.6</td>
+												<td>57.0</td>
+												<td>32.0</td>
+												<td>8.3</td>
+												<td>16.7</td>
+												<td>0.2</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가을배추</th>
+												
+												
+												<td>60.2</td>
+												<td>39.8</td>
+												<td>8.4</td>
+												<td>12.0</td>
+												<td>57.8</td>
+												<td>34.0</td>
+												<td>6.9</td>
+												<td>16.9</td>
+												<td>-2.4</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">봄무</th>
+												
+												
+												<td>65.7</td>
+												<td>39.1</td>
+												<td>8.3</td>
+												<td>18.3</td>
+												<td>50.9</td>
+												<td>34.8</td>
+												<td>9.0</td>
+												<td>7.1</td>
+												<td>-14.8</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">고랭지무</th>
+												
+												
+												<td>60.4</td>
+												<td>32.6</td>
+												<td>9.9</td>
+												<td>17.9</td>
+												<td>50.6</td>
+												<td>28.8</td>
+												<td>9.1</td>
+												<td>12.7</td>
+												<td>-9.8</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가을무</th>
+												
+												
+												<td>69.2</td>
+												<td>35.8</td>
+												<td>6.8</td>
+												<td>26.6</td>
+												<td>55.8</td>
+												<td>26.2</td>
+												<td>7.1</td>
+												<td>22.5</td>
+												<td>-13.4</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">월동배추</th>
+												
+												
+												<td>54.6</td>
+												<td>40.5</td>
+												<td>7.4</td>
+												<td>6.7</td>
+												<td>54.8</td>
+												<td>36.8</td>
+												<td>7.0</td>
+												<td>11.0</td>
+												<td>0.2</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">월동무</th>
+												
+												
+												<td>78.1</td>
+												<td>47.4</td>
+												<td>7.1</td>
+												<td>23.6</td>
+												<td>77.8</td>
+												<td>49.5</td>
+												<td>7.0</td>
+												<td>21.3</td>
+												<td>-0.3</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가중평균</th>
+												
+												
+												<td>64.3</td>
+												<td>38.9</td>
+												<td>8.0</td>
+												<td>17.4</td>
+												<td>58.2</td>
+												<td>34.7</td>
+												<td>7.5</td>
+												<td>16.0</td>
+												<td>-6.1</td>
+											</tr>
+										
+											
+											<tr>
+												
+													
+														<th scope="col" rowspan="6" class="tsw_fix" style="left: 0px;">과채류</th>
+													
+													
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">수박</th>
+												
+												
+												<td>45.1</td>
+												<td>22.0</td>
+												<td>6.4</td>
+												<td>16.7</td>
+												<td>42.8</td>
+												<td>20.8</td>
+												<td>7.8</td>
+												<td>14.2</td>
+												<td>-2.3</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">참외</th>
+												
+												
+												<td>38.3</td>
+												<td>16.4</td>
+												<td>7.8</td>
+												<td>14.1</td>
+												<td>38.3</td>
+												<td>16.4</td>
+												<td>7.8</td>
+												<td>14.1</td>
+												<td>0.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">오이</th>
+												
+												
+												<td>44.8</td>
+												<td>14.2</td>
+												<td>5.8</td>
+												<td>24.8</td>
+												<td>35.2</td>
+												<td>17.9</td>
+												<td>6.2</td>
+												<td>11.1</td>
+												<td>-9.6</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">방울토마토</th>
+												
+												
+												<td>59.6</td>
+												<td>23.5</td>
+												<td>7.6</td>
+												<td>28.5</td>
+												<td>59.6</td>
+												<td>23.5</td>
+												<td>7.6</td>
+												<td>28.5</td>
+												<td>0.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">딸기</th>
+												
+												
+												<td>52.4</td>
+												<td>23.1</td>
+												<td>11.6</td>
+												<td>17.7</td>
+												<td>52.4</td>
+												<td>23.1</td>
+												<td>11.6</td>
+												<td>17.7</td>
+												<td>0.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가중평균</th>
+												
+												
+												<td>51.0</td>
+												<td>21.1</td>
+												<td>8.3</td>
+												<td>21.6</td>
+												<td>50.6</td>
+												<td>21.6</td>
+												<td>8.5</td>
+												<td>20.5</td>
+												<td>-0.4</td>
+											</tr>
+										
+											
+											<tr>
+												
+													
+														<th scope="col" rowspan="5" class="tsw_fix" style="left: 0px;">조미채소류</th>
+													
+													
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">건고추</th>
+												
+												
+												<td>44.1</td>
+												<td>12.9</td>
+												<td>6.4</td>
+												<td>24.8</td>
+												<td>47.0</td>
+												<td>11.7</td>
+												<td>8.6</td>
+												<td>26.7</td>
+												<td>2.9</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">난지형마늘</th>
+												
+												
+												<td>55.4</td>
+												<td>24.5</td>
+												<td>5.2</td>
+												<td>25.7</td>
+												<td>54.9</td>
+												<td>24.6</td>
+												<td>6.3</td>
+												<td>24.0</td>
+												<td>-0.5</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">양파</th>
+												
+												
+												<td>72.4</td>
+												<td>28.5</td>
+												<td>8.3</td>
+												<td>35.6</td>
+												<td>75.6</td>
+												<td>34.1</td>
+												<td>7.7</td>
+												<td>33.8</td>
+												<td>3.2</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">대파</th>
+												
+												
+												<td>60.6</td>
+												<td>30.6</td>
+												<td>9.4</td>
+												<td>20.6</td>
+												<td>60.6</td>
+												<td>30.6</td>
+												<td>9.4</td>
+												<td>20.6</td>
+												<td>0.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가중평균</th>
+												
+												
+												<td>60.8</td>
+												<td>24.9</td>
+												<td>7.1</td>
+												<td>28.8</td>
+												<td>61.2</td>
+												<td>26.4</td>
+												<td>7.7</td>
+												<td>27.1</td>
+												<td>0.4</td>
+											</tr>
+										
+											
+											<tr>
+												
+													
+														<th scope="col" rowspan="7" class="tsw_fix" style="left: 0px;">과일류</th>
+													
+													
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">사과</th>
+												
+												
+												<td>52.3</td>
+												<td>18.6</td>
+												<td>6.3</td>
+												<td>27.4</td>
+												<td>45.2</td>
+												<td>19.1</td>
+												<td>8.2</td>
+												<td>17.9</td>
+												<td>-7.1</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">배</th>
+												
+												
+												<td>45.1</td>
+												<td>27.2</td>
+												<td>5.4</td>
+												<td>12.5</td>
+												<td>53.9</td>
+												<td>22.6</td>
+												<td>5.6</td>
+												<td>25.7</td>
+												<td>8.8</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">단감</th>
+												
+												
+												<td>48.6</td>
+												<td>22.9</td>
+												<td>7.0</td>
+												<td>18.7</td>
+												<td>48.3</td>
+												<td>19.4</td>
+												<td>8.6</td>
+												<td>20.3</td>
+												<td>-0.3</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">포도</th>
+												
+												
+												<td>41.1</td>
+												<td>23.3</td>
+												<td>7.7</td>
+												<td>10.1</td>
+												<td>46.4</td>
+												<td>20.5</td>
+												<td>8.0</td>
+												<td>17.9</td>
+												<td>5.3</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">감귤</th>
+												
+												
+												<td>59.8</td>
+												<td>27.4</td>
+												<td>8.1</td>
+												<td>24.3</td>
+												<td>58.1</td>
+												<td>27.3</td>
+												<td>10.2</td>
+												<td>20.6</td>
+												<td>-1.7</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">복숭아</th>
+												
+												
+												<td>40.4</td>
+												<td>24.5</td>
+												<td>10.0</td>
+												<td>5.9</td>
+												<td>51.4</td>
+												<td>24.1</td>
+												<td>14.8</td>
+												<td>12.5</td>
+												<td>11.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가중평균</th>
+												
+												
+												<td>48.1</td>
+												<td>23.2</td>
+												<td>7.7</td>
+												<td>17.2</td>
+												<td>50.2</td>
+												<td>22.3</td>
+												<td>9.6</td>
+												<td>18.3</td>
+												<td>2.1</td>
+											</tr>
+										
+											
+											<tr>
+												
+													
+														<th scope="col" rowspan="3" class="tsw_fix" style="left: 0px;">화훼류</th>
+													
+													
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">장미</th>
+												
+												
+												<td>52.2</td>
+												<td>26.9</td>
+												<td>12.6</td>
+												<td>12.7</td>
+												<td>52.2</td>
+												<td>26.9</td>
+												<td>12.6</td>
+												<td>12.7</td>
+												<td>0.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">국화</th>
+												
+												
+												<td>54.5</td>
+												<td>31.0</td>
+												<td>14.2</td>
+												<td>9.3</td>
+												<td>54.5</td>
+												<td>31.0</td>
+												<td>14.2</td>
+												<td>9.3</td>
+												<td>0.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가중평균</th>
+												
+												
+												<td>53.3</td>
+												<td>28.9</td>
+												<td>13.4</td>
+												<td>11.0</td>
+												<td>53.3</td>
+												<td>28.9</td>
+												<td>13.4</td>
+												<td>11.0</td>
+												<td>0.0</td>
+											</tr>
+										
+											
+											<tr>
+												
+													
+														<th scope="col" rowspan="5" class="tsw_fix" style="left: 0px;">축산부류</th>
+													
+													
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">쇠고기</th>
+												
+												
+												<td>52.6</td>
+												<td>9.5</td>
+												<td>24.3</td>
+												<td>18.8</td>
+												<td>51.5</td>
+												<td>8.8</td>
+												<td>27.7</td>
+												<td>15.0</td>
+												<td>-1.1</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">돼지고기</th>
+												
+												
+												<td>46.0</td>
+												<td>12.6</td>
+												<td>28.3</td>
+												<td>5.1</td>
+												<td>45.8</td>
+												<td>10.7</td>
+												<td>28.7</td>
+												<td>6.4</td>
+												<td>-0.2</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">닭고기</th>
+												
+												
+												<td>59.0</td>
+												<td>13.8</td>
+												<td>36.6</td>
+												<td>8.6</td>
+												<td>61.3</td>
+												<td>13.5</td>
+												<td>36.2</td>
+												<td>11.6</td>
+												<td>2.3</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">계란</th>
+												
+												
+												<td>42.1</td>
+												<td>15.8</td>
+												<td>26.1</td>
+												<td>0.2</td>
+												<td>41.6</td>
+												<td>15.6</td>
+												<td>25.6</td>
+												<td>0.4</td>
+												<td>-0.5</td>
+											</tr>
+										
+											
+											<tr>
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">가중평균</th>
+												
+												
+												<td>50.1</td>
+												<td>11.9</td>
+												<td>27.9</td>
+												<td>10.3</td>
+												<td>49.9</td>
+												<td>10.9</td>
+												<td>29.2</td>
+												<td>9.8</td>
+												<td>-0.2</td>
+											</tr>
+										
+											
+											<tr>
+												
+													
+													
+														<th scope="col" rowspan="1" class="tsw_fix" style="left: 0px;">전체가중평균</th>
+													
+												
+												
+												
+													<th scope="col" class="tsw_fix" style="left: 110.417px;">전체가중평균</th>
+												
+												<td>49.2</td>
+												<td>17.1</td>
+												<td>17.5</td>
+												<td>14.6</td>
+												<td>49.2</td>
+												<td>16.5</td>
+												<td>18.4</td>
+												<td>14.3</td>
+												<td>0.0</td>
+											</tr>
+										
+									
+								
+							</tbody>
+				</table>
+			</td>
+		</tr>
+	</table>
+</body>
+</html>

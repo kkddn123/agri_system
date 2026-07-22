@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { theme, card } from "../theme";
-import { loadRdaCases, loadPublicDatasets, loadIncomeData, loadShippingGuides } from "../lib/dataLoader";
+import { loadRdaCases, loadPublicDatasets, loadIncomeData, loadShippingGuides, loadDistributionStatus } from "../lib/dataLoader";
 import { CROP_REGISTRY, findCrop } from "../lib/cropRegistry";
 
 // 이 파일은 농가판매경로_AI시스템.jsx(v8)의 로직(행동기반 5문항 분류, TOPSIS 계산,
@@ -579,8 +579,58 @@ function buildGuideBlock(shippingGuides, cropName) {
 - 위 품질기준·시세 시기·포장 추세·경로별 특성을 "경로별 평가", "추천 포트폴리오", "경로별 경쟁력 강화 과제"에 반드시 실제 근거로 반영하라. 이 근거와 어긋나는 일반론을 만들지 마라.`;
 }
 
+// 진단 작목명 → 유통실태 품목키 매핑. 계절형(봄/가을/고랭지)·노지/시설 접두 흡수.
+function findDistCrop(byCrop, cropName) {
+  if (!byCrop || !cropName) return null;
+  const raw = String(cropName).trim();
+  if (byCrop[raw]) return { key: raw, data: byCrop[raw] };
+  // 접두어 제거 후 재시도
+  const stripped = raw.replace(/^(노지|시설|친환경|유기|무농약)\s*/g, "");
+  if (byCrop[stripped]) return { key: stripped, data: byCrop[stripped] };
+  // 계절형 변형 평균(예: "감자" → 봄·고랭지·가을감자 평균, "무"/"배추" 동일)
+  const bases = { 감자: ["봄감자", "고랭지감자", "가을감자"], 무: ["봄무", "고랭지무", "가을무", "월동무"], 배추: ["봄배추", "고랭지배추", "가을배추", "월동배추"] };
+  for (const [base, variants] of Object.entries(bases)) {
+    if (stripped.includes(base)) {
+      const hits = variants.map((v) => byCrop[v]).filter(Boolean);
+      if (hits.length) {
+        const avg = (f) => Math.round((hits.reduce((s, h) => s + (h[f] || 0), 0) / hits.length) * 10) / 10;
+        return { key: `${base}(계절 평균)`, data: { 유통비용률: avg("유통비용률"), 생산자수취율: avg("생산자수취율"), _avgOf: variants.filter((v) => byCrop[v]) } };
+      }
+    }
+  }
+  // 부분일치(마늘↔난지형마늘, 고추↔건고추 등)
+  const keys = Object.keys(byCrop);
+  const partial = keys.find((k) => k.includes(stripped) || stripped.includes(k));
+  return partial ? { key: partial, data: byCrop[partial] } : null;
+}
+
+// 품목별 유통실태(aT KAMIS) 실측 근거블록. 유통비용률·생산자수취율 + 전국 출하처 비율.
+function buildDistBlock(distStatus, cropName) {
+  if (!distStatus) return "";
+  const agg = distStatus.aggregate || {};
+  const hit = findDistCrop(distStatus.byCrop, cropName);
+  const lines = ["[품목별 유통실태 실측 근거 (aT KAMIS, 2024)]"];
+  if (hit) {
+    const d = hit.data;
+    lines.push(`- ${hit.key} 유통비용률 ${d.유통비용률}% → 생산자수취율 약 ${d.생산자수취율}% (소비자가 중 농가 몫)`);
+    if (d.전년대비증감 != null) lines.push(`  · 전년 대비 유통비용률 ${d.전년대비증감 > 0 ? "+" : ""}${d.전년대비증감}%p`);
+    if (d.이윤 != null) lines.push(`  · 유통비용 내역(%): 직접비 ${d.직접비}, 간접비 ${d.간접비}, 이윤 ${d.이윤}`);
+  } else {
+    lines.push(`- ${cropName || "이 품목"}은 유통실태 품목표에 직접 매칭되는 값이 없어 청과물 전체 평균으로 참고한다.`);
+  }
+  if (agg.청과물_평균생산자수취율 != null) {
+    lines.push(`- 청과물 전체 평균: 생산자수취율 ${agg.청과물_평균생산자수취율}% / 유통비용률 ${agg.청과물_평균유통비용률}%`);
+  }
+  if (agg.청과물_출하처비율) {
+    const r = agg.청과물_출하처비율;
+    lines.push(`- 전국 출하처 비율: 생산자단체 계통출하 ${r.생산자단체_계통출하}%(제1출하처, 최근 5년 상승세) · 산지유통인 ${r.산지유통인}% · 산지공판장 ${r.산지공판장}% · 가공저장 ${r["가공·저장업체"]}% · 도매상 ${r.도매상}%`);
+  }
+  lines.push("- 위 수취율·유통비용·출하처 비율은 전국/대표경로 평균(농가별 값 아님)이다. 경로별 평가와 추천 포트폴리오에서 '이 품목의 수취율 수준'과 '생산자단체 계통출하의 현실 비중'을 실제 근거로 반영하되, 농가 개별 조건이 다르면 그 차이를 밝혀라. 없는 수치를 지어내지 마라.");
+  return lines.join("\n");
+}
+
 // ─── 레이어1 AI 분석 프롬프트 생성 (v8 기반 + 소득자료 연계) ──────
-function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, guideBlock, inputFactsBlock) {
+function buildLayer1Prompt(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, guideBlock, inputFactsBlock, distBlock) {
   const typeInfo = TYPE_INFO[farmerType.type];
   const topRoutes = topsisResult.slice(0, 3).map((r) => `${r.route}(${r.score}점)`).join(", ");
 
@@ -637,6 +687,8 @@ ${inputFactsBlock || ""}
 ${guideBlock || ""}
 
 ${incomeBlock || ""}
+
+${distBlock || ""}
 
 ${buildSkipBlock(form)}
 
@@ -715,7 +767,7 @@ ${buildSummaryInstruction([
 //    LLM이 스스로 경로 적합도를 추론·순위 매기며, 표와 다르면 그 이유를 밝히게 한다.
 // 목적: "표가 결정 → LLM이 해설" 구조를 "LLM이 추론 → 표는 참고"로 뒤집었을 때
 //       결과가 얼마나/어떻게 달라지는지 규칙기반 결과와 나란히 비교하기 위함.
-function buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, guideBlock, inputFactsBlock) {
+function buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, guideBlock, inputFactsBlock, distBlock) {
   return `당신은 이 농가 한 곳의 조건·성향·자원을 '있는 그대로' 읽고, 5개 판매경로가 이 농가에 실제로 맞는지를 스스로 추론해 판단하는 농업유통 컨설턴트다.
 이것은 규칙기반 점수표가 아니라 당신의 추론으로 순위를 정하는 방식이다. 아래 사전 점수는 참고일 뿐이며, 당신의 판단과 다르면 반드시 그 이유를 밝혀라.
 
@@ -759,6 +811,8 @@ ${inputFactsBlock || ""}
 ${guideBlock || ""}
 
 ${incomeBlock || ""}
+
+${distBlock || ""}
 
 ${buildSkipBlock(form)}
 
@@ -1472,6 +1526,7 @@ export default function PortfolioDiagnosis() {
   const [datasets, setDatasets] = useState([]);
   const [incomeData, setIncomeData] = useState([]);
   const [shippingGuides, setShippingGuides] = useState([]);
+  const [distStatus, setDistStatus] = useState(null); // 품목별 유통실태(유통비용률·수취율)
   const [incomeEvidence, setIncomeEvidence] = useState(null);
   const [priceBench, setPriceBench] = useState(null); // KAMIS 연평균 도매·소매가(원/kg)
   const [inputBench, setInputBench] = useState(null); // 입력 검증용 시세(작목 선택 시 미리 조회)
@@ -1485,6 +1540,7 @@ export default function PortfolioDiagnosis() {
     loadPublicDatasets().then(({ items }) => { if (alive) setDatasets(items); }).catch(() => {});
     loadIncomeData().then(({ items }) => { if (alive) setIncomeData(items); }).catch(() => {});
     loadShippingGuides().then(({ items }) => { if (alive) setShippingGuides(items); }).catch(() => {});
+    loadDistributionStatus().then((d) => { if (alive) setDistStatus(d); }).catch(() => {});
     return () => { alive = false; };
   }, []);
 
@@ -1632,7 +1688,7 @@ export default function PortfolioDiagnosis() {
     setLayer2Source("규칙기반");
     setStep(2);
     try {
-      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight, incomeBlock, buildGuideBlock(shippingGuides, form.crop), buildInputFactsBlock(form, bench));
+      const prompt = buildLayer1Prompt(form, behaviorAnswers, ft, topsis, consumerInsight, incomeBlock, buildGuideBlock(shippingGuides, form.crop), buildInputFactsBlock(form, bench), buildDistBlock(distStatus, form.crop));
       await callClaude(prompt, (txt) => setLayer1Output(txt));
     } catch (e) {
       setLayer1Output("⚠️ 분석 중 오류가 발생했습니다: " + e.message);
@@ -1660,7 +1716,7 @@ export default function PortfolioDiagnosis() {
     setCompareOutput("");
     setReasoningPortfolio(null);
     try {
-      const prompt = buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, buildGuideBlock(shippingGuides, form.crop), buildInputFactsBlock(form, bench));
+      const prompt = buildLayer1PromptReasoning(form, behaviorAnswers, farmerType, topsisResult, consumerInsight, incomeBlock, buildGuideBlock(shippingGuides, form.crop), buildInputFactsBlock(form, bench), buildDistBlock(distStatus, form.crop));
       const full = await callClaude(prompt, (txt) => setCompareOutput(txt));
       // 추론 결과에서 포트폴리오 경로 파싱 → 레이어2 기준선 후보로 보관, 판독 라인은 화면에서 제거
       setReasoningPortfolio(parseReasoningPortfolio(full));

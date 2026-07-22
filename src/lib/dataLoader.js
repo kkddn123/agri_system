@@ -31,6 +31,12 @@ export async function loadRdaCases() {
   return { items: data.cases || [], meta: data.meta || {} };
 }
 
+// 품목별 유통실태(aT KAMIS) — 유통비용률·생산자수취율 벤치마크. 실패해도 진단은 계속되도록 호출부에서 처리.
+export async function loadDistributionStatus() {
+  const data = await loadJSON("distribution-status.json");
+  return { byCrop: data.byCrop || {}, aggregate: data.aggregate || {}, meta: data.meta || {} };
+}
+
 export function isExample(item) {
   return !!item?._example;
 }
